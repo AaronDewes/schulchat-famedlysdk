@@ -606,15 +606,21 @@ class Room {
       String? editEventId,
       bool parseMarkdown = true,
       bool parseCommands = true,
-      String msgtype = MessageTypes.Text}) {
+      String msgtype = MessageTypes.Text,
+      Map<String,String>? additionalContent = null}) {
     if (parseCommands) {
       return client.parseAndRunCommand(this, message,
           inReplyTo: inReplyTo, editEventId: editEventId, txid: txid);
     }
     final event = <String, dynamic>{
-      'msgtype': msgtype,
+      'msgtype'kein: msgtype,
       'body': message,
     };
+
+    if(additionalContent != null) {
+      event.addAll(additionalContent);
+    }
+
     if (parseMarkdown) {
       final html = markdown(event['body'],
           getEmotePacks: () => getImagePacksFlat(ImagePackUsage.emoticon),
