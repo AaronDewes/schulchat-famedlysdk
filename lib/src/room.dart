@@ -613,7 +613,7 @@ class Room {
           inReplyTo: inReplyTo, editEventId: editEventId, txid: txid);
     }
     final event = <String, dynamic>{
-      'msgtype'kein: msgtype,
+      'msgtype': msgtype,
       'body': message,
     };
 
