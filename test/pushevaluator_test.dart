@@ -367,5 +367,37 @@ void main() {
       // don't match if state_key is missing
       expect(evaluator.match(nonStateEvent).notify, false);
     });
+
+    test('event_match without pattern', () async {
+      final stateEventObj = <String, dynamic>{
+        'event_id': id,
+        'origin_server_ts': timestamp,
+        'room_id': '!testroom:example.abc',
+        'sender': senderID,
+        'state_key': '',
+        'type': 'm.room.tombstone',
+        'content': {'body': 'This room has been replaced', 'replacement_room': '!testroom2:example.abc'}
+      };
+      final event = Event.fromJson(stateEventObj, room);
+
+      final ruleset = PushRuleSet(override: [
+        PushRule(ruleId: 'my.rule', default$: false, enabled: true, actions: [
+          'notify',
+          {'set_tweak': 'highlight', 'value': true},
+          {'set_tweak': 'sound', 'value': 'goose.wav'},
+        ], conditions: [
+          PushCondition(kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
+          PushCondition(kind: 'event_match', key: 'state_key'),
+        ])
+      ]);
+
+      final evaluator = PushruleEvaluator.fromRuleset(ruleset);
+      expect(evaluator.match(event).notify, true);
+
+      // don't match if state_key contains arbitrary value
+      event.stateKey = '23';
+      expect(evaluator.match(event).notify, false);
+    });
+  });
   });
 }

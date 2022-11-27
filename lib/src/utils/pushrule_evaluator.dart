@@ -69,6 +69,12 @@ class _PatternCondition {
     field = tempField;
 
     var tempPat = condition.pattern;
+
+    // undefined pattern for state_key is treated as empty string pattern
+    // and matches all state events with an empty string value for state_key
+    if (tempPat == null && tempField == 'state_key') {
+      tempPat = '';
+    }
     if (tempPat == null) {
       {
         throw 'PushCondition is missing pattern';
