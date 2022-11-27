@@ -324,5 +324,48 @@ void main() {
       event.senderId = '@a:b.c';
       expect(evaluator.match(event).notify, false);
     });
+
+    test('state events and empty pattern', () async {
+      final stateEventObj = <String, dynamic>{
+        'event_id': id,
+        'origin_server_ts': timestamp,
+        'room_id': '!testroom:example.abc',
+        'sender': senderID,
+        'state_key': '',
+        'type': 'm.room.tombstone',
+        'content': {'body': 'This room has been replaced', 'replacement_room': '!testroom2:example.abc'}
+      };
+      // without state_key
+      final nonStateEventObj = <String, dynamic>{
+        'event_id': id,
+        'origin_server_ts': timestamp,
+        'room_id': '!testroom:example.abc',
+        'sender': senderID,
+        'type': 'm.room.tombstone',
+        'content': {'body': 'Not a state event'}
+      };
+      final event = Event.fromJson(stateEventObj, room);
+      final nonStateEvent = Event.fromJson(nonStateEventObj, room);
+
+      final ruleset = PushRuleSet(override: [
+        PushRule(ruleId: 'my.rule', default$: false, enabled: true, actions: [
+          'notify',
+          {'set_tweak': 'highlight', 'value': true},
+          {'set_tweak': 'sound', 'value': 'goose.wav'},
+        ], conditions: [
+          PushCondition(kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
+          PushCondition(kind: 'event_match', key: 'state_key', pattern: ''),
+        ])
+      ]);
+
+      final evaluator = PushruleEvaluator.fromRuleset(ruleset);
+      expect(evaluator.match(event).notify, true);
+
+      // don't match if state_key is a non-empty string
+      event.stateKey = '23';
+      expect(evaluator.match(event).notify, false);
+      // don't match if state_key is missing
+      expect(evaluator.match(nonStateEvent).notify, false);
+    });
   });
 }
