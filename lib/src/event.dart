@@ -33,6 +33,7 @@ abstract class RelationshipTypes {
   static const String reply = 'm.in_reply_to';
   static const String edit = 'm.replace';
   static const String reaction = 'm.annotation';
+  static const String readReceipt = 'm.read_receipt';
 }
 
 /// All data exchanged over Matrix is expressed as an "event". Typically each client action (e.g. sending a message) correlates with exactly one event.
