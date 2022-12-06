@@ -80,6 +80,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   late CollectionBox<String> _seenDeviceKeysBox;
 
+  late CollectionBox<Map> _requireReadReceiptBox;
+
   String get _clientBoxName => 'box_client';
 
   String get _accountDataBoxName => 'box_account_data';
@@ -118,6 +120,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   String get _seenDeviceKeysBoxName => 'box_seen_device_keys';
 
+  String get _requireReadReceiptBoxName => 'box_require_read_receipt';
+
   HiveCollectionsDatabase(this.name, this.path, {this.key});
 
   @override
@@ -146,6 +150,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         _eventsBoxName,
         _seenDeviceIdsBoxName,
         _seenDeviceKeysBoxName,
+        _requireReadReceiptBoxName,
       },
       key: key,
       path: path,
@@ -212,7 +217,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
     _seenDeviceKeysBox = await _collection.openBox(
       _seenDeviceKeysBoxName,
     );
-
+    _requireReadReceiptBox = await _collection.openBox(
+      _requireReadReceiptBoxName,
+    );
     // Check version and check if we need a migration
     final currentVersion = int.tryParse(await _clientBox.get('version') ?? '');
     if (currentVersion == null) {
@@ -251,6 +258,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         _eventsBox.clear(),
         _seenDeviceIdsBox.clear(),
         _seenDeviceKeysBox.clear(),
+        _requireReadReceiptBox.clear(),
         _collection.deleteFromDisk(),
       ]);
 
@@ -1491,6 +1499,25 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
+  Future<void> addReadReceiptRequiredEvent(String eventId, String roomId) async {
+    final event = <String, dynamic>{
+      'room_id': roomId,
+      'state': 0,
+    };
+    return await _requireReadReceiptBox.put(eventId, event);
+  }
+
+  @override
+  Future<void> setReadReceiptRequiredEventState(int state) async {
+
+  }
+
+  @override
+  Future<Map<String, Map>> getReadReceiptRequiredEvents() async {
+    return await _requireReadReceiptBox.getAllValues();
+  }
+
+  @override
   Future<String> exportDump() async {
     final dataMap = {
       _clientBoxName: await _clientBox.getAllValues(),
@@ -1516,6 +1543,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
       _eventsBoxName: await _eventsBox.getAllValues(),
       _seenDeviceIdsBoxName: await _seenDeviceIdsBox.getAllValues(),
       _seenDeviceKeysBoxName: await _seenDeviceKeysBox.getAllValues(),
+      _requireReadReceiptBoxName: await _requireReadReceiptBox.getAllValues(),
     };
     final json = jsonEncode(dataMap);
     await clear();
@@ -1586,6 +1614,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
       }
       for (final key in json[_seenDeviceKeysBoxName]!.keys) {
         await _seenDeviceKeysBox.put(key, json[_seenDeviceKeysBoxName]![key]);
+      }
+      for (final key in json[_requireReadReceiptBoxName]!.keys) {
+        await _requireReadReceiptBox.put(key, json[_requireReadReceiptBoxName]![key]);
       }
       return true;
     } catch (e, s) {

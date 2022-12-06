@@ -306,6 +306,12 @@ abstract class DatabaseApi {
 
   Future<String?> publicKeySeen(String publicKey);
 
+  Future<void> addReadReceiptRequiredEvent(String eventId, String roomId);
+
+  Future<void> setReadReceiptRequiredEventState(int state);
+
+  Future<Map<String, Map>> getReadReceiptRequiredEvents();
+
   Future<dynamic> close();
 
   Future<T> transaction<T>(Future<T> Function() action);

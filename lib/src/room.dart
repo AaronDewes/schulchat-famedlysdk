@@ -648,8 +648,8 @@ class Room {
     }, type: EventTypes.Reaction, txid: txid);
   }
 
-  Future<String?> sendReadReceipt(String eventId, String userId,
-      {String? txid}) {
+  Future<String?> sendReadReceipt(String eventId, String userId, {String? txid}) {
+
     final event = <String, dynamic>{
       'm.relates_to': {
         'rel_type': RelationshipTypes.readReceipt,
