@@ -607,7 +607,7 @@ class Room {
       bool parseMarkdown = true,
       bool parseCommands = true,
       String msgtype = MessageTypes.Text,
-      Map<String,String>? additionalContent = null}) {
+      Map<String, String>? additionalContent = null}) {
     if (parseCommands) {
       return client.parseAndRunCommand(this, message,
           inReplyTo: inReplyTo, editEventId: editEventId, txid: txid);
@@ -617,7 +617,7 @@ class Room {
       'body': message,
     };
 
-    if(additionalContent != null) {
+    if (additionalContent != null) {
       event.addAll(additionalContent);
     }
 

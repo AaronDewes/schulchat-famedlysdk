@@ -333,7 +333,10 @@ void main() {
         'sender': senderID,
         'state_key': '',
         'type': 'm.room.tombstone',
-        'content': {'body': 'This room has been replaced', 'replacement_room': '!testroom2:example.abc'}
+        'content': {
+          'body': 'This room has been replaced',
+          'replacement_room': '!testroom2:example.abc'
+        }
       };
       // without state_key
       final nonStateEventObj = <String, dynamic>{
@@ -353,7 +356,8 @@ void main() {
           {'set_tweak': 'highlight', 'value': true},
           {'set_tweak': 'sound', 'value': 'goose.wav'},
         ], conditions: [
-          PushCondition(kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
+          PushCondition(
+              kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
           PushCondition(kind: 'event_match', key: 'state_key', pattern: ''),
         ])
       ]);
@@ -376,7 +380,10 @@ void main() {
         'sender': senderID,
         'state_key': '',
         'type': 'm.room.tombstone',
-        'content': {'body': 'This room has been replaced', 'replacement_room': '!testroom2:example.abc'}
+        'content': {
+          'body': 'This room has been replaced',
+          'replacement_room': '!testroom2:example.abc'
+        }
       };
       final event = Event.fromJson(stateEventObj, room);
 
@@ -386,7 +393,8 @@ void main() {
           {'set_tweak': 'highlight', 'value': true},
           {'set_tweak': 'sound', 'value': 'goose.wav'},
         ], conditions: [
-          PushCondition(kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
+          PushCondition(
+              kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
           PushCondition(kind: 'event_match', key: 'state_key'),
         ])
       ]);
