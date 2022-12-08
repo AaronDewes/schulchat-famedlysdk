@@ -399,5 +399,4 @@ void main() {
       expect(evaluator.match(event).notify, false);
     });
   });
-  });
 }
