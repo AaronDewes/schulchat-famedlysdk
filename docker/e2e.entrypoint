@@ -1,0 +1,16 @@
+#!/bin/bash
+
+export IP=notknownyet
+
+sed -i "s/localhost/$IP/g" test_driver/test_config.dart
+
+while ! curl -XGET "http://$IP/_matrix/client/v3/login" >/dev/null 2>/dev/null;do 
+  sleep 2
+done
+curl -s -XPOST -d '{"username":"alice", "password":"AliceInWonderland", "inhibit_login":true, "auth": {"type":"m.login.dummy"}}' "http://$IP/_matrix/client/r0/register"
+curl -s -XPOST -d '{"username":"bob", "password":"JoWirSchaffenDas", "inhibit_login":true, "auth": {"type":"m.login.dummy"}}' "http://$IP/_matrix/client/r0/register"
+curl -s -XPOST -d '{"username":"trudy", "password":"HaveIBeenPwned", "inhibit_login":true, "auth": {"type":"m.login.dummy"}}' "http://$IP/_matrix/client/r0/register"
+flutter pub run test_driver/matrixsdk_test.dart
+export EXITCODE=$?
+echo "test exits with code ${EXITCODE}"
+exit $EXITCODE

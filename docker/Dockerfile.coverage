@@ -1,0 +1,30 @@
+FROM debian:bullseye-slim
+
+ARG CI_COMMIT_SHA
+ARG CI_JOB_TOKEN
+
+ENV FLUTTER_VERSION=3.3.8
+
+#PIPESTATUS needs bash
+SHELL ["/bin/bash", "-c"]
+RUN echo 'deb http://deb.debian.org/debian bullseye-backports main' >> /etc/apt/sources.list
+RUN apt update
+RUN apt install -y lcov curl xz-utils git pip
+RUN curl -s https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz | tar xfJ - -C /tmp
+ENV PATH=${PATH}:/tmp/flutter/bin
+RUN git clone https://gitlab-ci-token:$CI_JOB_TOKEN@git.fairkom.net/clients/rlp/client/famedlysdk.git
+WORKDIR ./famedlysdk
+RUN git checkout $CI_COMMIT_SHA
+RUN sed -i "s#git@git.fairkom.net:#https://gitlab-ci-token:$CI_JOB_TOKEN@git.fairkom.net/#g" pubspec.yaml
+RUN flutter pub get
+RUN flutter pub global activate junitreport
+RUN flutter test --coverage --machine | tee TEST-report.json && echo "${PIPESTATUS[0]}" > /tmp/test.exitcode
+RUN flutter pub global run junitreport:tojunit --input TEST-report.json --output TEST-report.xml
+# remove shell escapes since those are invalid xml (copied from test.sh)
+RUN sed 's/&#x1B;//g' -i TEST-report.xml
+RUN flutter pub global activate remove_from_coverage
+RUN flutter pub global run remove_from_coverage:remove_from_coverage -f coverage/lcov.info -r '\.g\.dart$'
+RUN genhtml -o coverage coverage/lcov.info || true
+# https://github.com/eriwen/lcov-to-cobertura-xml (copied from test.sh)
+RUN pip install lcov_cobertura
+RUN lcov_cobertura coverage/lcov.info || true
