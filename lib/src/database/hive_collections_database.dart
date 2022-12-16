@@ -1499,7 +1499,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
-  Future<void> addReadReceiptRequiredEvent(String eventId, String roomId) async {
+  Future<void> addReadReceiptRequiredEvent(
+      String eventId, String roomId) async {
     final event = <String, dynamic>{
       'room_id': roomId,
       'state': 0,
@@ -1508,9 +1509,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
-  Future<void> setReadReceiptRequiredEventState(int state) async {
-
-  }
+  Future<void> setReadReceiptRequiredEventState(int state) async {}
 
   @override
   Future<Map<String, Map>> getReadReceiptRequiredEvents() async {
@@ -1616,7 +1615,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
         await _seenDeviceKeysBox.put(key, json[_seenDeviceKeysBoxName]![key]);
       }
       for (final key in json[_requireReadReceiptBoxName]!.keys) {
-        await _requireReadReceiptBox.put(key, json[_requireReadReceiptBoxName]![key]);
+        await _requireReadReceiptBox.put(
+            key, json[_requireReadReceiptBoxName]![key]);
       }
       return true;
     } catch (e, s) {

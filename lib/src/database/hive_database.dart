@@ -1409,9 +1409,8 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
   }
 
   @override
-  Future<void> addReadReceiptRequiredEvent(String eventId, String roomId) async {
-
-  }
+  Future<void> addReadReceiptRequiredEvent(
+      String eventId, String roomId) async {}
 
   @override
   Future<void> setReadReceiptRequiredEventState(int state) async {}
@@ -1420,7 +1419,7 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
   Future<Map<String, Map>> getReadReceiptRequiredEvents() async {
     return Map();
   }
-  
+
   @override
   Future<String> exportDump() {
     // see no need to implement this in a deprecated part
