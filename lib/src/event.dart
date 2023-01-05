@@ -34,6 +34,7 @@ abstract class RelationshipTypes {
   static const String edit = 'm.replace';
   static const String reaction = 'm.annotation';
   static const String readReceipt = 'm.read_receipt';
+  static const String readReceiptRequired = 'm.read_receipt_required';
 }
 
 /// All data exchanged over Matrix is expressed as an "event". Typically each client action (e.g. sending a message) correlates with exactly one event.
