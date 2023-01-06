@@ -669,7 +669,7 @@ class Room {
       }
     };
 
-    return sendEvent(event, type: EventTypes.ReadReceipt, txid: txid);
+    return sendEvent(event, type: EventTypes.ReadReceiptRequired, txid: txid);
   }
 
   /// Sends the location with description [body] and geo URI [geoUri] into a room.
