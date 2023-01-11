@@ -361,6 +361,10 @@ class Encryption {
     if (payload.isEmpty && mRelatesTo != null) {
       return {'m.relates_to': mRelatesTo};
     }
+    // don't encrypt read receipt requests
+    if (type == EventTypes.ReadReceiptRequired) {
+      return payload;
+    }
     final room = client.getRoomById(roomId);
     if (room == null || !room.encrypted || !enabled) {
       return payload;
