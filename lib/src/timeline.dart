@@ -145,6 +145,10 @@ class Timeline {
             onInsert?.call(i);
           }
         }
+
+        for (final eventFromStore in eventsFromStore) {
+          addAggregatedEvent(eventFromStore);
+        }
       } else {
         Logs().i('No more events found in the store. Request from server...');
         if (isFragmentedTimeline) {
