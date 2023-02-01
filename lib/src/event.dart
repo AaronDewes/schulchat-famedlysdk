@@ -920,6 +920,17 @@ class Event extends MatrixEvent {
     return FileSendingStatus.values.singleWhereOrNull(
         (fileSendingStatus) => fileSendingStatus.name == status);
   }
+
+  Future<List<MatrixEvent>> getRelations({RelationshipTypes? relType}) async {
+    if (relType == null) {
+      final resp = await room.client.getAllRelations(room.id, eventId);
+      return resp.chunk.toList();
+    } else {
+      final resp = await room.client
+          .getRelations(room.id, eventId, RelationshipTypes.readReceipt);
+      return resp.chunk.toList();
+    }
+  }
 }
 
 enum FileSendingStatus {
