@@ -1487,72 +1487,82 @@ class Client extends MatrixApi {
   Map<String, List<MatrixEvent>> readReceiptRequests = {};
   Set<String> roomsWithOpenReadReceipts = {};
   bool get hasToGiveReadReceipt => roomsWithOpenReadReceipts.isNotEmpty;
+  Function(bool) _openReadReceiptsCallback = (bool value) {};
 
   void loadReadReceiptRequests(Function(bool) callback) {
-    readReceiptRequestsLoading = _loadReadReceiptRequests(callback);
+    _openReadReceiptsCallback = callback;
+    readReceiptRequestsLoading = _loadReadReceiptRequests();
   }
 
-  Future<void> _loadReadReceiptRequests(Function(bool) callback) async {
+  Future<void> _loadReadReceiptRequests() async {
     final receiptRequestsFilter = jsonEncode(Filter(
-        room: RoomFilter(
-            timeline:
+      room: RoomFilter(
+        timeline:
             StateFilter(types: [EventTypes.ReadReceiptRequired], limit: 50),
-        ),
-    )
-    );
+      ),
+    ));
 
-    SyncUpdate syncUpdate = await  sync(filter: receiptRequestsFilter);
+    SyncUpdate syncUpdate = await sync(filter: receiptRequestsFilter);
     // add rooms with read receipt requests
     if (syncUpdate.rooms != null) {
       _findRoomsWithReadReceiptsRequests(syncUpdate.rooms!);
       await _findOpenReadReceipts();
     }
 
-    callback(hasToGiveReadReceipt);
+    _openReadReceiptsCallback(hasToGiveReadReceipt);
   }
 
   void _findRoomsWithReadReceiptsRequests(RoomsUpdate rooms) {
     for (final roomId in rooms!.join!.keys) {
       var events = rooms!.join![roomId]?.timeline?.events;
 
-      if(events != null && events.length > 0) {
-          readReceiptRequests.addAll({roomId: events});
+      if (events != null && events.length > 0) {
+        readReceiptRequests.addAll({roomId: events});
       }
     }
   }
 
-  Future<void> _findOpenReadReceipts() async
-  {
-    for(final String roomId in readReceiptRequests.keys) {
+  Future<void> _findOpenReadReceipts() async {
+    for (final String roomId in readReceiptRequests.keys) {
+      await _findOpenReadReceiptsInRoom(roomId);
+    }
+  }
 
-      for(final event in readReceiptRequests[roomId]!) {
-
-        final String? parentEventId =  event.content.tryGetMap<String, dynamic>('m.relates_to')?.tryGet<String>('event_id');
-        // if current user has requested read receipt, he/she needn't
-        // give a read receipt for this event
-        if(parentEventId != null && event.senderId != userID)
-        {
-          GetRelationsResponse res = await getRelations(roomId, parentEventId!, RelationshipTypes.readReceipt);
-          if(res.chunk.isEmpty) {
+  Future<void> _findOpenReadReceiptsInRoom(String roomId) async {
+    for (final event in readReceiptRequests[roomId]!) {
+      final String? parentEventId = event.content
+          .tryGetMap<String, dynamic>('m.relates_to')
+          ?.tryGet<String>('event_id');
+      // if current user has requested read receipt, he/she needn't
+      // give a read receipt for this event
+      if (parentEventId != null && event.senderId != userID) {
+        GetRelationsResponse res = await getRelations(
+            roomId, parentEventId!, RelationshipTypes.readReceipt);
+        if (res.chunk.isEmpty) {
+          roomsWithOpenReadReceipts.add(roomId);
+          break;
+        } else {
+          final readReceiptGiven = res.chunk
+              .where((e) =>
+                  e.content
+                      .tryGetMap<String, dynamic>('m.relates_to')
+                      ?.tryGet<String>('user_id') ==
+                  userID)
+              .toList()
+              .isNotEmpty;
+          if (!readReceiptGiven) {
             roomsWithOpenReadReceipts.add(roomId);
             break;
-          }
-          else {
-            final readReceiptGiven = res.chunk
-                .where((e) =>
-            e.content
-                .tryGetMap<String, dynamic>('m.relates_to')
-                ?.tryGet<String>('user_id') == userID)
-                .toList()
-                .isNotEmpty;
-              if(!readReceiptGiven){
-                roomsWithOpenReadReceipts.add(roomId);
-                break;
-              }
           }
         }
       }
     }
+  }
+
+  void updateOpenReadReceipts(String roomId) async {
+    roomsWithOpenReadReceipts.remove(roomId);
+    await _findOpenReadReceiptsInRoom(roomId);
+    _openReadReceiptsCallback(hasToGiveReadReceipt);
   }
 
   /// Used for testing only
