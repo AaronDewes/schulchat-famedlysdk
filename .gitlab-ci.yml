@@ -22,7 +22,7 @@ lint:
     - flutter format lib/ test/ --set-exit-if-changed
 
 coverage:
-  tags: [docker]
+  tags: [docker, rlp]
   script:
     #TODO install olm?
     - docker build -f docker/Dockerfile.coverage -t sdk-coverage --build-arg CI_JOB_TOKEN=$CI_JOB_TOKEN --build-arg CI_COMMIT_SHA=$CI_COMMIT_SHA .
@@ -72,7 +72,7 @@ coverage:
 #      junit: TEST-report.xml
 
 e2ee_test:
-  tags: [docker]
+  tags: [docker, rlp]
     #  services:
     #    - docker:dind
   parallel:
