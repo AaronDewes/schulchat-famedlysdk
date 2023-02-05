@@ -1488,6 +1488,7 @@ class Client extends MatrixApi {
   Set<String> roomsWithOpenReadReceipts = {};
   bool get hasToGiveReadReceipt => roomsWithOpenReadReceipts.isNotEmpty;
   Function(bool) _openReadReceiptsCallback = (bool value) {};
+  bool _readReceiptInfoInitialized = false;
 
   void loadReadReceiptRequests(Function(bool) callback) {
     _openReadReceiptsCallback = callback;
@@ -1509,6 +1510,7 @@ class Client extends MatrixApi {
       await _findOpenReadReceipts();
     }
 
+    _readReceiptInfoInitialized = true;
     _openReadReceiptsCallback(hasToGiveReadReceipt);
   }
 
@@ -1559,7 +1561,39 @@ class Client extends MatrixApi {
     }
   }
 
-  void updateOpenReadReceipts(String roomId) async {
+  Future<void> _updateReadReceiptInfo(
+      Room room, List<MatrixEvent> events, EventUpdateType type) async {
+    // ignore first call of sync when fluffychat loads
+    // react only when user sends a new message in a chat
+    if (_readReceiptInfoInitialized) {
+      for (MatrixEvent event in events) {
+        if (event.type == EventTypes.ReadReceiptRequired) {
+          if (readReceiptRequests.containsKey(room.id)) {
+            readReceiptRequests.addAll({
+              room.id: [event]
+            });
+          } else {
+            readReceiptRequests[room.id]!.add(event);
+          }
+
+          final String? parentEventId = event.content
+              .tryGetMap<String, dynamic>('m.relates_to')
+              ?.tryGet<String>('event_id');
+          // if current user has requested read receipt, he/she needn't
+          // give a read receipt for this event
+          if (parentEventId != null && event.senderId != userID) {
+            roomsWithOpenReadReceipts.add(room.id);
+            _openReadReceiptsCallback(hasToGiveReadReceipt);
+          }
+        } else if (event.type == EventTypes.ReadReceipt) {
+          await updateOpenReadReceipts(room.id);
+          _openReadReceiptsCallback(hasToGiveReadReceipt);
+        }
+      }
+    }
+  }
+
+  Future<void> updateOpenReadReceipts(String roomId) async {
     roomsWithOpenReadReceipts.remove(roomId);
     await _findOpenReadReceiptsInRoom(roomId);
     _openReadReceiptsCallback(hasToGiveReadReceipt);
@@ -1897,6 +1931,8 @@ class Client extends MatrixApi {
         final timelineEvents = syncRoomUpdate.timeline?.events;
         if (timelineEvents != null && timelineEvents.isNotEmpty) {
           await _handleRoomEvents(room, timelineEvents, timelineUpdateType);
+          await _updateReadReceiptInfo(
+              room, timelineEvents, timelineUpdateType);
         }
 
         final ephemeral = syncRoomUpdate.ephemeral;
