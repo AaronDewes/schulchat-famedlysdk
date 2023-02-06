@@ -1484,11 +1484,18 @@ class Client extends MatrixApi {
   }
 
   Future? readReceiptRequestsLoading;
-  Map<String, List<MatrixEvent>> readReceiptRequests = {};
+  Map<String, Map<String, MatrixEvent>> readReceiptRequests = {};
   Set<String> roomsWithOpenReadReceipts = {};
-  bool get hasToGiveReadReceipt => roomsWithOpenReadReceipts.isNotEmpty;
-  Function(bool) _openReadReceiptsCallback = (bool value) {};
+  Function(bool) _openReadReceiptsCallback = (bool value) {}; // set by ChatList
+  Function(Room, MatrixEvent) _newReadReceiptRequestCallback =
+      (Room r, MatrixEvent e) {};
   bool _readReceiptInfoInitialized = false;
+
+  bool get hasToGiveReadReceipt => roomsWithOpenReadReceipts.isNotEmpty;
+
+  void set newReadReceiptRequestCallback(Function(Room, MatrixEvent) callback) {
+    _newReadReceiptRequestCallback = callback;
+  }
 
   void loadReadReceiptRequests(Function(bool) callback) {
     _openReadReceiptsCallback = callback;
@@ -1519,7 +1526,9 @@ class Client extends MatrixApi {
       var events = rooms!.join![roomId]?.timeline?.events;
 
       if (events != null && events.length > 0) {
-        readReceiptRequests.addAll({roomId: events});
+        final Map<String, MatrixEvent> eventMap = Map.fromIterable(events,
+            key: (event) => event.eventId, value: (event) => event);
+        readReceiptRequests.addAll({roomId: eventMap});
       }
     }
   }
@@ -1531,7 +1540,7 @@ class Client extends MatrixApi {
   }
 
   Future<void> _findOpenReadReceiptsInRoom(String roomId) async {
-    for (final event in readReceiptRequests[roomId]!) {
+    for (final event in readReceiptRequests[roomId]!.values) {
       final String? parentEventId = event.content
           .tryGetMap<String, dynamic>('m.relates_to')
           ?.tryGet<String>('event_id');
@@ -1563,31 +1572,48 @@ class Client extends MatrixApi {
 
   Future<void> _updateReadReceiptInfo(
       Room room, List<MatrixEvent> events, EventUpdateType type) async {
-    // ignore first call of sync when fluffychat loads
+    // ignore first call of sync when fluffychat loads (initialises)
     // react only when user sends a new message in a chat
     if (_readReceiptInfoInitialized) {
       for (MatrixEvent event in events) {
-        if (event.type == EventTypes.ReadReceiptRequired) {
-          if (readReceiptRequests.containsKey(room.id)) {
-            readReceiptRequests.addAll({
-              room.id: [event]
-            });
-          } else {
-            readReceiptRequests[room.id]!.add(event);
-          }
+        // check for Debug is a HACK - if user requests read receipt in debug mode
+        // the event of type ReadReceiptRequired is sent several times (??) once with eventId "FluffyChat Debug ..."
+        if (!event.eventId.contains("Debug")) {
+          if (event.type == EventTypes.ReadReceiptRequired) {
+            bool added = false;
+            if (readReceiptRequests.containsKey(room.id)) {
+              // /sync can be called several times, although just
+              // one event was added -> therefore check if event was
+              // already handled
+              if (!readReceiptRequests[room.id]!.containsKey(event.eventId)) {
+                readReceiptRequests[room.id]!.addAll({event.eventId: event});
+                added = true;
+              }
+            } else {
+              readReceiptRequests.addAll({
+                room.id: {event.eventId: event}
+              });
+              added = true;
+            }
 
-          final String? parentEventId = event.content
-              .tryGetMap<String, dynamic>('m.relates_to')
-              ?.tryGet<String>('event_id');
-          // if current user has requested read receipt, he/she needn't
-          // give a read receipt for this event
-          if (parentEventId != null && event.senderId != userID) {
-            roomsWithOpenReadReceipts.add(room.id);
+            if (added) {
+              final String? parentEventId = event.content
+                  .tryGetMap<String, dynamic>('m.relates_to')
+                  ?.tryGet<String>('event_id');
+              // if current user has requested read receipt, he/she needn't
+              // give a read receipt for this event
+              if (parentEventId != null && event.senderId != userID) {
+                roomsWithOpenReadReceipts.add(room.id);
+                _openReadReceiptsCallback(hasToGiveReadReceipt);
+              }
+              // notify other classes that a new read receipt request
+              // was added in class client
+              _newReadReceiptRequestCallback(room, event);
+            }
+          } else if (event.type == EventTypes.ReadReceipt) {
+            await updateOpenReadReceipts(room.id);
             _openReadReceiptsCallback(hasToGiveReadReceipt);
           }
-        } else if (event.type == EventTypes.ReadReceipt) {
-          await updateOpenReadReceipts(room.id);
-          _openReadReceiptsCallback(hasToGiveReadReceipt);
         }
       }
     }
