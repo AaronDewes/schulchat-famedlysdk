@@ -1499,17 +1499,10 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
-  Future<void> addReadReceiptRequiredEvent(
-      String eventId, String roomId) async {
-    final event = <String, dynamic>{
-      'room_id': roomId,
-      'state': 0,
-    };
-    return await _requireReadReceiptBox.put(eventId, event);
+  Future<void> addReadReceiptRequiredEvent(Event event, String roomId) async {
+    return await _requireReadReceiptBox.put(
+        TupleKey(roomId, event.eventId).toString(), event.toJson());
   }
-
-  @override
-  Future<void> setReadReceiptRequiredEventState(int state) async {}
 
   @override
   Future<Map<String, Map>> getReadReceiptRequiredEvents() async {
