@@ -921,8 +921,8 @@ class Event extends MatrixEvent {
         (fileSendingStatus) => fileSendingStatus.name == status);
   }
 
-  Future<List<MatrixEvent>> getRelations({RelationshipTypes? relType}) async {
-    if (relType == null) {
+  Future<List<MatrixEvent>> getRelations({String relType = ''}) async {
+    if (relType.isEmpty) {
       final resp = await room.client.getAllRelations(room.id, eventId);
       return resp.chunk.toList();
     } else {

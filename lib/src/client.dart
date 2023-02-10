@@ -38,6 +38,7 @@ import 'package:matrix/src/utils/run_benchmarked.dart';
 import 'package:matrix/src/utils/run_in_root.dart';
 import 'package:matrix/src/utils/sync_update_item_count.dart';
 import 'package:matrix/src/utils/try_get_push_rule.dart';
+import 'package:matrix_api_lite/src/model/GetRelationsResponse.dart';
 
 typedef RoomSorter = int Function(Room a, Room b);
 
@@ -1522,12 +1523,13 @@ class Client extends MatrixApi {
   }
 
   void _findRoomsWithReadReceiptsRequests(RoomsUpdate rooms) {
-    for (final roomId in rooms!.join!.keys) {
-      var events = rooms!.join![roomId]?.timeline?.events;
+    for (final roomId in rooms.join!.keys) {
+      final events = rooms.join![roomId]?.timeline?.events;
 
-      if (events != null && events.length > 0) {
-        final Map<String, MatrixEvent> eventMap = Map.fromIterable(events,
-            key: (event) => event.eventId, value: (event) => event);
+      if (events != null && events.isNotEmpty) {
+        final Map<String, MatrixEvent> eventMap = {
+          for (var event in events) event.eventId: event
+        };
         readReceiptRequests.addAll({roomId: eventMap});
       }
     }
@@ -1548,7 +1550,7 @@ class Client extends MatrixApi {
       // give a read receipt for this event
       if (parentEventId != null && event.senderId != userID) {
         GetRelationsResponse res = await getRelations(
-            roomId, parentEventId!, RelationshipTypes.readReceipt);
+            roomId, parentEventId, RelationshipTypes.readReceipt);
         if (res.chunk.isEmpty) {
           roomsWithOpenReadReceipts.add(roomId);
           break;
