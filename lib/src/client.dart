@@ -24,6 +24,7 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:http/http.dart' as http;
+import 'package:matrix_api_lite/src/model/GetRelationsResponse.dart';
 import 'package:mime/mime.dart';
 import 'package:olm/olm.dart' as olm;
 import 'package:random_string/random_string.dart';
@@ -38,7 +39,6 @@ import 'package:matrix/src/utils/run_benchmarked.dart';
 import 'package:matrix/src/utils/run_in_root.dart';
 import 'package:matrix/src/utils/sync_update_item_count.dart';
 import 'package:matrix/src/utils/try_get_push_rule.dart';
-import 'package:matrix_api_lite/src/model/GetRelationsResponse.dart';
 
 typedef RoomSorter = int Function(Room a, Room b);
 
