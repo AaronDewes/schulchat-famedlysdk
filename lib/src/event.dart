@@ -927,7 +927,7 @@ class Event extends MatrixEvent {
       return resp.chunk.toList();
     } else {
       final resp = await room.client
-          .getRelations(room.id, eventId, RelationshipTypes.readReceipt);
+          .getRelations(room.id, eventId, relType);
       return resp.chunk.toList();
     }
   }
