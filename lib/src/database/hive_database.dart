@@ -1409,8 +1409,7 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
   }
 
   @override
-  Future<void> addReadReceiptRequiredEvent(
-      Event event, String roomId) async {}
+  Future<void> addReadReceiptRequiredEvent(Event event, String roomId) async {}
 
   @override
   Future<Map<String, Map>> getReadReceiptRequiredEvents() async {
