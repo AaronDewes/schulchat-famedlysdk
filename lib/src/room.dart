@@ -600,14 +600,15 @@ class Room {
 
   /// Sends a normal text message to this room. Returns the event ID generated
   /// by the server for this message.
-  Future<String?> sendTextEvent(String message,
-      {String? txid,
-      Event? inReplyTo,
-      String? editEventId,
-      bool parseMarkdown = true,
-      bool parseCommands = true,
-      String msgtype = MessageTypes.Text,
-      Map<String, String>? additionalContent = null}) {
+  Future<String?> sendTextEvent(
+    String message, {
+    String? txid,
+    Event? inReplyTo,
+    String? editEventId,
+    bool parseMarkdown = true,
+    bool parseCommands = true,
+    String msgtype = MessageTypes.Text,
+  }) {
     if (parseCommands) {
       return client.parseAndRunCommand(this, message,
           inReplyTo: inReplyTo, editEventId: editEventId, txid: txid);
@@ -616,10 +617,6 @@ class Room {
       'msgtype': msgtype,
       'body': message,
     };
-
-    if (additionalContent != null) {
-      event.addAll(additionalContent);
-    }
 
     if (parseMarkdown) {
       final html = markdown(event['body'],
