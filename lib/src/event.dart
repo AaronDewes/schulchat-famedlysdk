@@ -78,6 +78,8 @@ class Event extends MatrixEvent {
   MatrixEvent? _originalSource;
   MatrixEvent? get originalSource => _originalSource;
 
+  bool isReadReceiptGiving = false;
+
   Event({
     this.status = defaultStatus,
     required Map<String, dynamic> content,
