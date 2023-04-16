@@ -1556,7 +1556,7 @@ class Client extends MatrixApi {
 
     SyncUpdate syncUpdate = await sync(filter: receiptRequestsFilter);
     // add rooms with read receipt requests
-    if (syncUpdate.rooms != null) {
+    if (syncUpdate.rooms?.join != null) {
       _findRoomsWithReadReceiptsRequests(syncUpdate.rooms!);
       await _findOpenReadReceipts();
     }
