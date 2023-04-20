@@ -59,6 +59,7 @@ const String fileSendingStatusKey =
     'com.famedly.famedlysdk.file_sending_status';
 
 const String sortOrderKey = 'com.famedly.famedlysdk.sort_order';
+const String emptyRoomName = 'Empty chat';
 
 /// Represents a Matrix room.
 class Room {
@@ -89,6 +90,9 @@ class Room {
 
   /// Key-Value store for private account data only visible for this user.
   Map<String, BasicRoomEvent> roomAccountData = {};
+
+  /// stores stale group call checking timers for rooms.
+  Map<String, Timer> staleGroupCallsTimer = {};
 
   final _sendingQueue = <Completer>[];
 
@@ -139,6 +143,7 @@ class Room {
       }
     }
     partial = false;
+    startStaleCallsChecker(id);
   }
 
   /// Returns the [Event] for the given [typeKey] and optional [stateKey].
@@ -232,15 +237,45 @@ class Room {
   /// of just 'Alice' to make it different to a direct chat.
   /// Empty chats will become the localized version of 'Empty Chat'.
   /// This method requires a localization class which implements [MatrixLocalizations]
-  String getLocalizedDisplayname(MatrixLocalizations i18n) {
-    if (name.isEmpty &&
-        canonicalAlias.isEmpty &&
-        !isDirectChat &&
-        (summary.mHeroes != null && summary.mHeroes?.isNotEmpty == true)) {
-      return i18n.groupWith(displayname);
+  String getLocalizedDisplayname([
+    MatrixLocalizations i18n = const MatrixDefaultLocalizations(),
+  ]) {
+    if (name.isNotEmpty) return name;
+
+    final canonicalAlias = this.canonicalAlias.localpart;
+    if (canonicalAlias != null && canonicalAlias.isNotEmpty) {
+      return canonicalAlias;
     }
-    if (displayname.isNotEmpty) {
-      return displayname;
+
+    final directChatMatrixID = this.directChatMatrixID;
+    final heroes = summary.mHeroes ??
+        (directChatMatrixID == null ? [] : [directChatMatrixID]);
+    if (heroes.isNotEmpty) {
+      final result = heroes
+          .where((hero) => hero.isNotEmpty)
+          .map((hero) =>
+              unsafeGetUserFromMemoryOrFallback(hero).calcDisplayname())
+          .join(', ');
+      if (isAbandonedDMRoom) {
+        return i18n.wasDirectChatDisplayName(result);
+      }
+
+      return isDirectChat ? result : i18n.groupWith(result);
+    }
+    if (membership == Membership.invite) {
+      final sender = getState(EventTypes.RoomMember, client.userID!)
+          ?.senderFromMemoryOrFallback
+          .calcDisplayname();
+      if (sender != null) return sender;
+    }
+    if (membership == Membership.leave) {
+      final invitation = getState(EventTypes.RoomMember, client.userID!);
+      if (invitation != null && invitation.unsigned?['prev_sender'] != null) {
+        final name = unsafeGetUserFromMemoryOrFallback(
+                invitation.unsigned?['prev_sender'])
+            .calcDisplayname();
+        return i18n.wasDirectChatDisplayName(name);
+      }
     }
     return i18n.emptyChat;
   }
@@ -272,7 +307,9 @@ class Room {
       }
     }
     if (membership == Membership.invite) {
-      return getState(EventTypes.RoomMember, client.userID!)
+      final userID = client.userID;
+      if (userID == null) return null;
+      return getState(EventTypes.RoomMember, userID)
           ?.senderFromMemoryOrFallback
           .avatarUrl;
     }
@@ -301,7 +338,9 @@ class Room {
   /// Returns null otherwise.
   String? get directChatMatrixID {
     if (membership == Membership.invite) {
-      final invitation = getState(EventTypes.RoomMember, client.userID!);
+      final userID = client.userID;
+      if (userID == null) return null;
+      final invitation = getState(EventTypes.RoomMember, userID);
       if (invitation != null && invitation.content['is_direct'] == true) {
         return invitation.senderId;
       }
@@ -397,38 +436,24 @@ class Room {
   /// history of this room.
   static const int defaultHistoryCount = 30;
 
+  /// Checks if this is an abandoned DM room where the other participant has
+  /// left the room. This is false when there are still other users in the room
+  /// or the room is not marked as a DM room.
+  bool get isAbandonedDMRoom {
+    final directChatMatrixID = this.directChatMatrixID;
+
+    if (directChatMatrixID == null) return false;
+    final dmPartnerMembership =
+        unsafeGetUserFromMemoryOrFallback(directChatMatrixID).membership;
+    return dmPartnerMembership == Membership.leave &&
+        summary.mJoinedMemberCount == 1 &&
+        summary.mInvitedMemberCount == 0;
+  }
+
   /// Calculates the displayname. First checks if there is a name, then checks for a canonical alias and
   /// then generates a name from the heroes.
-  String get displayname {
-    if (name.isNotEmpty) return name;
-
-    final canonicalAlias = this.canonicalAlias.localpart;
-    if (canonicalAlias != null && canonicalAlias.isNotEmpty) {
-      return canonicalAlias;
-    }
-
-    final heroes = summary.mHeroes;
-    if (heroes != null && heroes.isNotEmpty) {
-      return heroes
-          .where((hero) => hero.isNotEmpty)
-          .map((hero) =>
-              unsafeGetUserFromMemoryOrFallback(hero).calcDisplayname())
-          .join(', ');
-    }
-    if (isDirectChat) {
-      final user = directChatMatrixID;
-      if (user != null) {
-        return unsafeGetUserFromMemoryOrFallback(user).calcDisplayname();
-      }
-    }
-    if (membership == Membership.invite) {
-      final sender = getState(EventTypes.RoomMember, client.userID!)
-          ?.senderFromMemoryOrFallback
-          .calcDisplayname();
-      if (sender != null) return sender;
-    }
-    return 'Empty chat';
-  }
+  @Deprecated('Use `getLocalizedDisplayname()` instead')
+  String get displayname => getLocalizedDisplayname();
 
   /// When the last message received.
   DateTime get timeCreated => lastEvent?.originServerTs ?? DateTime.now();
@@ -703,12 +728,6 @@ class Room {
     MatrixImageFile? thumbnail,
     Map<String, dynamic>? extraContent,
   }) async {
-    final mediaConfig = await client.getConfig();
-    final maxMediaSize = mediaConfig.mUploadSize;
-    if (maxMediaSize != null && maxMediaSize < file.bytes.lengthInBytes) {
-      throw FileTooBigMatrixException(file.bytes.lengthInBytes, maxMediaSize);
-    }
-
     txid ??= client.generateUniqueTransactionId();
     sendingFilePlaceholders[txid] = file;
     if (thumbnail != null) {
@@ -750,6 +769,22 @@ class Room {
         },
       ),
     );
+
+    // Check media config of the server before sending the file. Stop if the
+    // Media config is unreachable or the file is bigger than the given maxsize.
+    try {
+      final mediaConfig = await client.getConfig();
+      final maxMediaSize = mediaConfig.mUploadSize;
+      if (maxMediaSize != null && maxMediaSize < file.bytes.lengthInBytes) {
+        throw FileTooBigMatrixException(file.bytes.lengthInBytes, maxMediaSize);
+      }
+    } catch (e) {
+      Logs().d('Config error while sending file', e);
+      syncUpdate.rooms!.join!.values.first.timeline!.events!.first
+          .unsigned![messageSendingStatusKey] = EventStatus.error.intValue;
+      await _handleFakeSync(syncUpdate);
+      rethrow;
+    }
 
     MatrixFile uploadFile = file; // ignore: omit_local_variable_types
     // computing the thumbnail in case we can
@@ -964,7 +999,7 @@ class Room {
     String? editEventId,
   }) async {
     // Create new transaction id
-    String messageID;
+    final String messageID;
     if (txid == null) {
       messageID = client.generateUniqueTransactionId();
     } else {
@@ -1107,7 +1142,6 @@ class Room {
   /// Call the Matrix API to leave this room. If this room is set as a direct
   /// chat, this will be removed too.
   Future<void> leave() async {
-    if (directChatMatrixID != '') await removeFromDirectChat();
     try {
       await client.leaveRoom(id);
     } on MatrixException catch (exception) {
@@ -1329,7 +1363,10 @@ class Room {
       for (var i = 0; i < events.length; i++) {
         if (events[i].type == EventTypes.Encrypted &&
             events[i].content['can_request_session'] == true) {
-          events[i] = await client.encryption!.decryptRoomEvent(id, events[i]);
+          events[i] = await client.encryption!.decryptRoomEvent(
+            id,
+            events[i],
+          );
         }
       }
     }
@@ -1421,8 +1458,11 @@ class Room {
               for (var i = 0; i < chunk.events.length; i++) {
                 if (chunk.events[i].content['can_request_session'] == true) {
                   chunk.events[i] = await client.encryption!.decryptRoomEvent(
-                      id, chunk.events[i],
-                      store: !isArchived);
+                    id,
+                    chunk.events[i],
+                    store: !isArchived,
+                    updateType: EventUpdateType.history,
+                  );
                 }
               }
             });
@@ -1489,7 +1529,7 @@ class Room {
     // Do not request users from the server if we have already done it
     // in this session or have a complete list locally.
     if (_requestedParticipants || participantListComplete) {
-      return getParticipants();
+      return getParticipants(membershipFilter);
     }
 
     final matrixEvents = await client.getMembersByRoom(id);
@@ -1561,7 +1601,7 @@ class Room {
     Map<String, dynamic>? resp;
     try {
       Logs().v(
-          'Request missing user $mxID in room $displayname from the server...');
+          'Request missing user $mxID in room ${getLocalizedDisplayname()} from the server...');
       resp = await client.getRoomStateWithKey(
         id,
         EventTypes.RoomMember,
@@ -1639,8 +1679,10 @@ class Room {
       final event = Event.fromMatrixEvent(matrixEvent, this);
       if (event.type == EventTypes.Encrypted && client.encryptionEnabled) {
         // attempt decryption
-        return await client.encryption
-            ?.decryptRoomEvent(id, event, store: false);
+        return await client.encryption?.decryptRoomEvent(
+          id,
+          event,
+        );
       }
       return event;
     } on MatrixException catch (err) {
@@ -1725,10 +1767,10 @@ class Room {
   }
 
   bool get canCreateGroupCall =>
-      canChangeStateEvent('org.matrix.msc3401.call') && groupCallsEnabled;
+      canChangeStateEvent(EventTypes.GroupCallPrefix) && groupCallsEnabled;
 
   bool get canJoinGroupCall =>
-      canChangeStateEvent('org.matrix.msc3401.call.member') &&
+      canChangeStateEvent(EventTypes.GroupCallMemberPrefix) &&
       groupCallsEnabled;
 
   /// if returned value is not null `org.matrix.msc3401.call.member` is present
@@ -1736,9 +1778,9 @@ class Room {
   bool get groupCallsEnabled {
     final powerLevelMap = getState(EventTypes.RoomPowerLevels)?.content;
     if (powerLevelMap == null) return false;
-    return powerForChangingStateEvent('org.matrix.msc3401.call.member') <=
+    return powerForChangingStateEvent(EventTypes.GroupCallMemberPrefix) <=
             getDefaultPowerLevel(powerLevelMap) &&
-        powerForChangingStateEvent('org.matrix.msc3401.call') <=
+        powerForChangingStateEvent(EventTypes.GroupCallPrefix) <=
             getDefaultPowerLevel(powerLevelMap);
   }
 
@@ -1751,8 +1793,8 @@ class Room {
       final newPowerLevelMap = currentPowerLevelsMap;
       final eventsMap = newPowerLevelMap['events'] ?? {};
       eventsMap.addAll({
-        'org.matrix.msc3401.call': getDefaultPowerLevel(currentPowerLevelsMap),
-        'org.matrix.msc3401.call.member':
+        EventTypes.GroupCallPrefix: getDefaultPowerLevel(currentPowerLevelsMap),
+        EventTypes.GroupCallMemberPrefix:
             getDefaultPowerLevel(currentPowerLevelsMap)
       });
       newPowerLevelMap.addAll({'events': eventsMap});
@@ -2146,6 +2188,63 @@ class Room {
       'via': via,
     });
     return;
+  }
+
+  /// Generates a matrix.to link with appropriate routing info to share the room
+  Future<Uri> matrixToInviteLink() async {
+    if (canonicalAlias.isNotEmpty) {
+      return Uri.parse(
+          'https://matrix.to/#/${Uri.encodeComponent(canonicalAlias)}');
+    }
+    final List queryParameters = [];
+    final users = await requestParticipants();
+    final currentPowerLevelsMap = getState(EventTypes.RoomPowerLevels)?.content;
+
+    final temp = List<User>.from(users);
+    temp.removeWhere((user) => user.powerLevel < 50);
+    if (currentPowerLevelsMap != null) {
+      // just for weird rooms
+      temp.removeWhere((user) =>
+          user.powerLevel < getDefaultPowerLevel(currentPowerLevelsMap));
+    }
+
+    if (temp.isNotEmpty) {
+      temp.sort((a, b) => a.powerLevel.compareTo(b.powerLevel));
+      if (temp.last.id.domain != null) {
+        queryParameters.add(temp.last.id.domain!);
+      }
+    }
+
+    final Map<String, int> servers = {};
+    users.forEach((user) {
+      if (user.id.domain != null) {
+        if (servers.containsKey(user.id.domain!)) {
+          servers[user.id.domain!] = servers[user.id.domain!]! + 1;
+        } else {
+          servers[user.id.domain!] = 1;
+        }
+      }
+    });
+    final sortedServers = Map.fromEntries(servers.entries.toList()
+      ..sort((e1, e2) => e1.value.compareTo(e2.value)));
+    for (var i = 0; i <= 2; i++) {
+      if (!queryParameters.contains(sortedServers.keys.last)) {
+        queryParameters.add(sortedServers.keys.last);
+      }
+      sortedServers.remove(sortedServers.keys.last);
+    }
+
+    var queryString = '?';
+    for (var i = 0;
+        i <= (queryParameters.length > 2 ? 2 : queryParameters.length);
+        i++) {
+      if (i != 0) {
+        queryString += '&';
+      }
+      queryString += 'via=${queryParameters[i]}';
+    }
+    return Uri.parse(
+        'https://matrix.to/#/${Uri.encodeComponent(id)}$queryString');
   }
 
   /// Remove a child from this space by setting the `via` to an empty list.

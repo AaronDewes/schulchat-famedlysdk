@@ -58,6 +58,7 @@ class WrappedMediaStream {
   VideoRenderer renderer;
   final bool isWeb;
   final bool isGroupCall;
+  final RTCPeerConnection? pc;
 
   /// for debug
   String get title => '$displayName:$purpose:a[$audioMuted]:v[$videoMuted]';
@@ -70,6 +71,7 @@ class WrappedMediaStream {
 
   WrappedMediaStream(
       {this.stream,
+      this.pc,
       required this.renderer,
       required this.room,
       required this.userId,
@@ -305,6 +307,7 @@ class CallSession {
   String? get groupCallId => opts.groupCallId;
   String get callId => opts.callId;
   String get localPartyId => opts.localPartyId;
+  @Deprecated('Use room.getLocalizedDisplayname() instead')
   String? get displayName => room.displayname;
   CallDirection get direction => opts.dir;
   CallState state = CallState.kFledgling;
@@ -407,6 +410,20 @@ class CallSession {
     return null;
   }
 
+  /// returns whether a 1:1 call sender has video tracks
+  Future<bool> hasVideoToSend() async {
+    final transceivers = await pc!.getTransceivers();
+    final localUserMediaVideoTrack = localUserMediaStream?.stream
+        ?.getTracks()
+        .singleWhereOrNull((track) => track.kind == 'video');
+
+    // check if we have a video track locally and have transceivers setup correctly.
+    return localUserMediaVideoTrack != null &&
+        transceivers.singleWhereOrNull((transceiver) =>
+                transceiver.sender.track?.id == localUserMediaVideoTrack.id) !=
+            null;
+  }
+
   Timer? inviteTimer;
   Timer? ringingTimer;
 
@@ -421,6 +438,40 @@ class CallSession {
 
   Future<void> initWithInvite(CallType type, RTCSessionDescription offer,
       SDPStreamMetadata? metadata, int lifetime, bool isGroupCall) async {
+    if (!isGroupCall) {
+      // glare fixes
+      final prevCallId = voip.incomingCallRoomId[room.id];
+      if (prevCallId != null) {
+        // This is probably an outbound call, but we already have a incoming invite, so let's terminate it.
+        final prevCall = voip.calls[prevCallId];
+        if (prevCall != null) {
+          if (prevCall.inviteOrAnswerSent) {
+            Logs().d('[glare] invite or answer sent, lex compare now');
+            if (callId.compareTo(prevCall.callId) > 0) {
+              Logs().d(
+                  '[glare] new call $callId needs to be canceled because the older one ${prevCall.callId} has a smaller lex');
+              await hangup();
+              return;
+            } else {
+              Logs().d(
+                  '[glare] nice, lex of newer call $callId is smaller auto accept this here');
+
+              /// These fixes do not work all the time because sometimes the code
+              /// is at an unrecoverable stage (invite already sent when we were
+              /// checking if we want to send a invite), so commented out answering
+              /// automatically to prevent unknown cases
+              // await answer();
+              // return;
+            }
+          } else {
+            Logs().d(
+                '[glare] ${prevCall.callId} was still preparing prev call, nvm now cancel it');
+            await prevCall.hangup();
+          }
+        }
+      }
+    }
+
     await _preparePeerConnection();
     if (metadata != null) {
       _updateRemoteSDPStreamMetadata(metadata);
@@ -585,8 +636,15 @@ class CallSession {
 
     try {
       await pc!.setRemoteDescription(description);
+      RTCSessionDescription? answer;
       if (description.type == 'offer') {
-        final answer = await pc!.createAnswer({});
+        try {
+          answer = await pc!.createAnswer({});
+        } catch (e) {
+          await terminate(CallParty.kLocal, CallErrorCode.CreateAnswer, true);
+          return;
+        }
+
         await sendCallNegotiate(
             room, callId, Timeouts.lifetimeMs, localPartyId, answer.sdp!,
             type: answer.type!);
@@ -658,6 +716,13 @@ class CallSession {
         json['sdpMLineIndex']?.round() ?? 0,
       );
 
+      if (direction == CallDirection.kOutgoing &&
+          pc != null &&
+          await pc!.getRemoteDescription() == null) {
+        remoteCandidates.add(candidate);
+        continue;
+      }
+
       if (pc != null && inviteOrAnswerSent && remotePartyId != null) {
         try {
           await pc!.addCandidate(candidate);
@@ -703,7 +768,9 @@ class CallSession {
         if (stream == null) {
           return false;
         }
-        stream.getVideoTracks().forEach((track) {
+        stream.getTracks().forEach((track) {
+          // screen sharing should only have 1 video track anyway, so this only
+          // fires once
           track.onEnded = () {
             setScreensharingEnabled(false);
           };
@@ -717,16 +784,21 @@ class CallSession {
         return false;
       }
     } else {
-      for (final sender in screensharingSenders) {
-        await pc!.removeTrack(sender);
+      try {
+        for (final sender in screensharingSenders) {
+          await pc!.removeTrack(sender);
+        }
+        for (final track in localScreenSharingStream!.stream!.getTracks()) {
+          await track.stop();
+        }
+        localScreenSharingStream!.stopped = true;
+        await _removeStream(localScreenSharingStream!.stream!);
+        fireCallEvent(CallEvent.kFeedsChanged);
+        return false;
+      } catch (e) {
+        Logs().e('[VOIP] stopping screen sharing track failed', e);
+        return false;
       }
-      for (final track in localScreenSharingStream!.stream!.getTracks()) {
-        await track.stop();
-      }
-      localScreenSharingStream!.stopped = true;
-      await _removeStream(localScreenSharingStream!.stream!);
-      fireCallEvent(CallEvent.kFeedsChanged);
-      return false;
     }
   }
 
@@ -738,16 +810,18 @@ class CallSession {
       existingStream.first.setNewStream(stream);
     } else {
       final newStream = WrappedMediaStream(
-          renderer: voip.delegate.createRenderer(),
-          userId: client.userID!,
-          room: opts.room,
-          stream: stream,
-          purpose: purpose,
-          client: client,
-          audioMuted: stream.getAudioTracks().isEmpty,
-          videoMuted: stream.getVideoTracks().isEmpty,
-          isWeb: voip.delegate.isWeb,
-          isGroupCall: groupCallId != null);
+        renderer: voip.delegate.createRenderer(),
+        userId: client.userID!,
+        room: opts.room,
+        stream: stream,
+        purpose: purpose,
+        client: client,
+        audioMuted: stream.getAudioTracks().isEmpty,
+        videoMuted: stream.getVideoTracks().isEmpty,
+        isWeb: voip.delegate.isWeb,
+        isGroupCall: groupCallId != null,
+        pc: pc,
+      );
       await newStream.initialize();
       streams.add(newStream);
       onStreamAdd.add(newStream);
@@ -769,9 +843,7 @@ class CallSession {
 
     if (purpose == SDPStreamMetadataPurpose.Usermedia) {
       speakerOn = type == CallType.kVideo;
-      if (!voip.delegate.isWeb &&
-          !voip.delegate.isBackgroud &&
-          stream.getAudioTracks().isNotEmpty) {
+      if (!voip.delegate.isWeb && stream.getAudioTracks().isNotEmpty) {
         final audioTrack = stream.getAudioTracks()[0];
         audioTrack.enableSpeakerphone(speakerOn);
       }
@@ -801,16 +873,18 @@ class CallSession {
       existingStream.first.setNewStream(stream);
     } else {
       final newStream = WrappedMediaStream(
-          renderer: voip.delegate.createRenderer(),
-          userId: remoteUser!.id,
-          room: opts.room,
-          stream: stream,
-          purpose: purpose,
-          client: client,
-          audioMuted: audioMuted,
-          videoMuted: videoMuted,
-          isWeb: voip.delegate.isWeb,
-          isGroupCall: groupCallId != null);
+        renderer: voip.delegate.createRenderer(),
+        userId: remoteUser!.id,
+        room: opts.room,
+        stream: stream,
+        purpose: purpose,
+        client: client,
+        audioMuted: audioMuted,
+        videoMuted: videoMuted,
+        isWeb: voip.delegate.isWeb,
+        isGroupCall: groupCallId != null,
+        pc: pc,
+      );
       await newStream.initialize();
       streams.add(newStream);
       onStreamAdd.add(newStream);
@@ -872,16 +946,85 @@ class CallSession {
     fireCallEvent(CallEvent.kState);
   }
 
-  void setLocalVideoMuted(bool muted) {
+  Future<void> setLocalVideoMuted(bool muted) async {
+    if (!muted) {
+      final videoToSend = await hasVideoToSend();
+      if (!videoToSend) {
+        if (remoteSDPStreamMetadata == null) return;
+        await insertVideoTrackToAudioOnlyStream();
+      }
+    }
     localUserMediaStream?.setVideoMuted(muted);
-    _updateMuteStatus();
+    await _updateMuteStatus();
+  }
+
+  // used for upgrading 1:1 calls
+  Future<void> insertVideoTrackToAudioOnlyStream() async {
+    if (localUserMediaStream != null && localUserMediaStream!.stream != null) {
+      final stream = await _getUserMedia(CallType.kVideo);
+      if (stream != null) {
+        Logs().e('[VOIP] running replaceTracks() on stream: ${stream.id}');
+        _setTracksEnabled(stream.getVideoTracks(), true);
+        // replace local tracks
+        for (final track in localUserMediaStream!.stream!.getTracks()) {
+          try {
+            await localUserMediaStream!.stream!.removeTrack(track);
+            await track.stop();
+          } catch (e) {
+            Logs().w('failed to stop track');
+          }
+        }
+        final streamTracks = stream.getTracks();
+        for (final newTrack in streamTracks) {
+          await localUserMediaStream!.stream!.addTrack(newTrack);
+        }
+
+        // remove any screen sharing or remote transceivers, these don't need
+        // to be replaced anyway.
+        final transceivers = await pc!.getTransceivers();
+        transceivers.removeWhere((transceiver) =>
+            transceiver.sender.track == null ||
+            (localScreenSharingStream != null &&
+                localScreenSharingStream!.stream != null &&
+                localScreenSharingStream!.stream!
+                    .getTracks()
+                    .map((e) => e.id)
+                    .contains(transceiver.sender.track?.id)));
+
+        // in an ideal case the following should happen
+        // - audio track gets replaced
+        // - new video track gets added
+        for (final newTrack in streamTracks) {
+          final transceiver = transceivers.singleWhereOrNull(
+              (transceiver) => transceiver.sender.track!.kind == newTrack.kind);
+          if (transceiver != null) {
+            Logs().d(
+                '[VOIP] replacing ${transceiver.sender.track} in transceiver');
+            final oldSender = transceiver.sender;
+            await oldSender.replaceTrack(newTrack);
+            await transceiver.setDirection(
+              await transceiver.getDirection() ==
+                      TransceiverDirection.Inactive // upgrade, send now
+                  ? TransceiverDirection.SendOnly
+                  : TransceiverDirection.SendRecv,
+            );
+          } else {
+            // adding transceiver
+            Logs().d('[VOIP] adding track $newTrack to pc');
+            await pc!.addTrack(newTrack, localUserMediaStream!.stream!);
+          }
+        }
+        // for renderer to be able to show new video track
+        localUserMediaStream?.renderer.srcObject = stream;
+      }
+    }
   }
 
   bool get isLocalVideoMuted => localUserMediaStream?.isVideoMuted() ?? false;
 
-  void setMicrophoneMuted(bool muted) {
+  Future<void> setMicrophoneMuted(bool muted) async {
     localUserMediaStream?.setAudioMuted(muted);
-    _updateMuteStatus();
+    await _updateMuteStatus();
   }
 
   bool get isMicrophoneMuted => localUserMediaStream?.isAudioMuted() ?? false;
@@ -940,10 +1083,16 @@ class CallSession {
         ..transferee = false;
 
       final metadata = SDPStreamMetadata({
-        localUserMediaStream!.stream!.id: SDPStreamPurpose(
-            purpose: SDPStreamMetadataPurpose.Usermedia,
-            audio_muted: localUserMediaStream!.stream!.getAudioTracks().isEmpty,
-            video_muted: localUserMediaStream!.stream!.getVideoTracks().isEmpty)
+        if (localUserMediaStream != null)
+          localUserMediaStream!.stream!.id: SDPStreamPurpose(
+              purpose: SDPStreamMetadataPurpose.Usermedia,
+              audio_muted: localUserMediaStream!.audioMuted,
+              video_muted: localUserMediaStream!.videoMuted),
+        if (localScreenSharingStream != null)
+          localScreenSharingStream!.stream!.id: SDPStreamPurpose(
+              purpose: SDPStreamMetadataPurpose.Screenshare,
+              audio_muted: localScreenSharingStream!.audioMuted,
+              video_muted: localScreenSharingStream!.videoMuted),
       });
 
       await pc!.setLocalDescription(answer);
@@ -976,8 +1125,10 @@ class CallSession {
     }
     Logs().d('[VOIP] Rejecting call: $callId');
     await terminate(CallParty.kLocal, CallErrorCode.UserHangup, shouldEmit);
-    await sendCallReject(
-        room, callId, Timeouts.lifetimeMs, localPartyId, reason);
+    if (shouldEmit) {
+      await sendCallReject(
+          room, callId, Timeouts.lifetimeMs, localPartyId, reason);
+    }
   }
 
   Future<void> hangup([String? reason, bool suppressEvent = false]) async {
@@ -1019,14 +1170,28 @@ class CallSession {
     ringingTimer?.cancel();
     ringingTimer = null;
 
+    try {
+      voip.delegate.stopRingtone();
+    } catch (e) {
+      // maybe rigntone never started (group calls) or has been stopped already
+      Logs().d('stopping ringtone failed ', e);
+    }
+
     hangupParty = party;
     hangupReason = reason;
 
     if (shouldEmit) {
       setCallState(CallState.kEnded);
     }
-    voip.currentCID = null;
+
+    if (!isGroupCall) {
+      if (callId != voip.currentCID) return;
+      voip.currentCID = null;
+      voip.incomingCallRoomId.removeWhere((key, value) => value == callId);
+    }
+
     voip.calls.remove(callId);
+
     await cleanUp();
     if (shouldEmit) {
       onCallHangup.add(this);
@@ -1085,10 +1250,24 @@ class CallSession {
       ..transferee = false;
     final metadata = _getLocalSDPStreamMetadata();
     if (state == CallState.kCreateOffer) {
+      Logs().d('[glare] new invite sent about to be called');
+
       await sendInviteToCall(
           room, callId, Timeouts.lifetimeMs, localPartyId, null, offer.sdp!,
           capabilities: callCapabilities, metadata: metadata);
+      // just incase we ended the call but already sent the invite
+      if (state == CallState.kEnded) {
+        await hangup(CallErrorCode.Replaced, false);
+        setCallState(CallState.kEnded);
+        return;
+      }
       inviteOrAnswerSent = true;
+
+      if (!isGroupCall) {
+        Logs().d('[glare] set callid because new invite sent');
+        voip.incomingCallRoomId[room.id] = callId;
+      }
+
       setCallState(CallState.kInviteSent);
 
       inviteTimer = Timer(Duration(seconds: Timeouts.callTimeoutSec), () {
@@ -1187,13 +1366,17 @@ class CallSession {
   }
 
   Future<void> cleanUp() async {
-    for (final stream in streams) {
-      await stream.dispose();
-    }
-    streams.clear();
-    if (pc != null) {
-      await pc!.close();
-      await pc!.dispose();
+    try {
+      for (final stream in streams) {
+        await stream.dispose();
+      }
+      streams.clear();
+      if (pc != null) {
+        await pc!.close();
+        await pc!.dispose();
+      }
+    } catch (e) {
+      Logs().e('cleaning up streams failed', e);
     }
   }
 
@@ -1289,9 +1472,12 @@ class CallSession {
       if (event.streams.isNotEmpty) {
         final stream = event.streams[0];
         _addRemoteStream(stream);
-        stream.getVideoTracks().forEach((track) {
+        stream.getTracks().forEach((track) {
           track.onEnded = () {
-            _removeStream(stream);
+            if (stream.getTracks().isEmpty) {
+              Logs().d('[VOIP] detected a empty stream, removing it');
+              _removeStream(stream);
+            }
           };
         });
       }

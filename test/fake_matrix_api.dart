@@ -164,11 +164,37 @@ class FakeMatrixApi extends BaseClient {
     } else if (method == 'PUT' &&
         _client != null &&
         action.contains('/account_data/') &&
-        !action.contains('/room/')) {
+        !action.contains('/rooms/')) {
       final type = Uri.decodeComponent(action.split('/').last);
       final syncUpdate = sdk.SyncUpdate(
         nextBatch: '',
         accountData: [sdk.BasicEvent(content: decodeJson(data), type: type)],
+      );
+      if (_client?.database != null) {
+        await _client?.database?.transaction(() async {
+          await _client?.handleSync(syncUpdate);
+        });
+      } else {
+        await _client?.handleSync(syncUpdate);
+      }
+      res = {};
+    } else if (method == 'PUT' &&
+        _client != null &&
+        action.contains('/account_data/') &&
+        action.contains('/rooms/')) {
+      final segments = action.split('/');
+      final type = Uri.decodeComponent(segments.last);
+      final roomId = Uri.decodeComponent(segments[segments.length - 3]);
+      final syncUpdate = sdk.SyncUpdate(
+        nextBatch: '',
+        rooms: RoomsUpdate(
+          join: {
+            roomId: JoinedRoomUpdate(accountData: [
+              sdk.BasicRoomEvent(
+                  content: decodeJson(data), type: type, roomId: roomId)
+            ])
+          },
+        ),
       );
       if (_client?.database != null) {
         await _client?.database?.transaction(() async {
@@ -2509,6 +2535,10 @@ class FakeMatrixApi extends BaseClient {
       '/client/unstable/org.matrix.msc3814.v1/dehydrated_device': (var _) => {
             'device_id': 'DEHYDDEV',
           },
+      '/client/v3/rooms/${Uri.encodeComponent("!localpart:server.abc")}/state/${Uri.encodeComponent("org.matrix.msc3401.call")}/${Uri.encodeComponent("1675856324414gzczMtfzTk0DKgEw")}':
+          (var req) => {
+                'event_id': 'groupCall',
+              },
     },
     'DELETE': {
       '/unknown/token': (var req) => {'errcode': 'M_UNKNOWN_TOKEN'},

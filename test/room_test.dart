@@ -90,7 +90,7 @@ void main() {
       expect(room.summary.mJoinedMemberCount, notificationCount);
       expect(room.summary.mInvitedMemberCount, notificationCount);
       expect(room.summary.mHeroes, heroes);
-      expect(room.displayname, 'Alice, Bob, Charley');
+      expect(room.getLocalizedDisplayname(), 'Group with Alice, Bob, Charley');
       expect(
           room.getState('m.room.join_rules')?.content['join_rule'], 'public');
       expect(room.roomAccountData['com.test.foo']?.content['foo'], 'bar');
@@ -106,7 +106,7 @@ void main() {
             originServerTs: DateTime.now(),
             stateKey: ''),
       );
-      expect(room.displayname, 'testalias');
+      expect(room.getLocalizedDisplayname(), 'testalias');
       expect(room.canonicalAlias, '#testalias:example.com');
 
       room.setState(
@@ -119,7 +119,7 @@ void main() {
             originServerTs: DateTime.now(),
             stateKey: ''),
       );
-      expect(room.displayname, 'testname');
+      expect(room.getLocalizedDisplayname(), 'testname');
 
       expect(room.topic, '');
       room.setState(
@@ -494,7 +494,7 @@ void main() {
           room: room,
           eventId: '123a',
           content: {
-            'events': {'org.matrix.msc3401.call.member': 100},
+            'events': {EventTypes.GroupCallMemberPrefix: 100},
             'state_default': 50,
             'users_default': 0
           },
@@ -512,7 +512,7 @@ void main() {
           room: room,
           eventId: '123a',
           content: {
-            'events': {'org.matrix.msc3401.call.member': 27},
+            'events': {EventTypes.GroupCallMemberPrefix: 27},
             'state_default': 50,
             'users_default': 49
           },
@@ -532,8 +532,8 @@ void main() {
           eventId: '123a',
           content: {
             'events': {
-              'org.matrix.msc3401.call.member': 27,
-              'org.matrix.msc3401.call': 0
+              EventTypes.GroupCallMemberPrefix: 27,
+              EventTypes.GroupCallPrefix: 0
             },
             'state_default': 50,
             'users_default': 2
@@ -555,8 +555,8 @@ void main() {
           eventId: '123a',
           content: {
             'events': {
-              'org.matrix.msc3401.call.member': 25,
-              'org.matrix.msc3401.call': 25
+              EventTypes.GroupCallMemberPrefix: 25,
+              EventTypes.GroupCallPrefix: 25
             },
             'state_default': 50,
             'users_default': 26
@@ -1341,7 +1341,230 @@ void main() {
       expect(room.getMention('@[Alice Margatroid]'), '@alice:example.org');
       expect(room.getMention('@[Alice Margatroid]#1754'), '@alice:example.org');
     });
+    test('inviteLink', () async {
+      var matrixToLink = await room.matrixToInviteLink();
+      expect(matrixToLink.toString(),
+          'https://matrix.to/#/%23testalias%3Aexample.com');
+      room.setState(
+        Event(
+            senderId: '@test:example.com',
+            type: 'm.room.canonical_alias',
+            room: room,
+            eventId: '123',
+            content: {'alias': ''},
+            originServerTs: DateTime.now(),
+            stateKey: ''),
+      );
+      matrixToLink = await room.matrixToInviteLink();
+      expect(matrixToLink.toString(),
+          'https://matrix.to/#/!localpart%3Aserver.abc?via=example.org&via=example.com&via=test.abc');
+    });
 
+    test('callMemberStateIsExpired', () {
+      expect(
+          room.callMemberStateIsExpired(
+              Event(
+                  senderId: '@test:example.com',
+                  type: EventTypes.GroupCallMemberPrefix,
+                  room: room,
+                  eventId: '1231234124',
+                  content: {
+                    'm.calls': [
+                      {
+                        'm.call_id': '1674811248673789288k7d60n5976',
+                        'm.devices': [
+                          {
+                            'device_id': 'ZEEGCGPTGI',
+                            'session_id': 'cbAtVZdLBnJq',
+                            'm.expires_ts': 1674813039415,
+                            'feeds': [
+                              {'purpose': 'm.usermedia'}
+                            ]
+                          }
+                        ]
+                      },
+                    ],
+                  },
+                  originServerTs: DateTime.now(),
+                  stateKey: ''),
+              '1674811248673789288k7d60n5976'),
+          true);
+      expect(
+          room.callMemberStateIsExpired(
+              Event(
+                  senderId: '@test:example.com',
+                  type: EventTypes.GroupCallMemberPrefix,
+                  room: room,
+                  eventId: '1231234124',
+                  content: {
+                    'm.calls': [
+                      {
+                        'm.call_id': '1674811256006mfqnmsAbzqxjYtWZ',
+                        'm.devices': [
+                          {
+                            'device_id': 'ZEEGCGPTGI',
+                            'session_id': 'fhovqxwcasdfr',
+                            'expires_ts': DateTime.now()
+                                .add(Duration(minutes: 1))
+                                .millisecondsSinceEpoch,
+                            'feeds': [
+                              {'purpose': 'm.usermedia'}
+                            ]
+                          }
+                        ]
+                      }
+                    ],
+                  },
+                  originServerTs: DateTime.now(),
+                  stateKey: ''),
+              '1674811256006mfqnmsAbzqxjYtWZ'),
+          false);
+    });
+
+    test('stale call checker and terminator', () async {
+      room.setState(Event(
+          content: {'m.intent': 'm.prompt', 'm.type': 'm.video'},
+          type: EventTypes.GroupCallPrefix,
+          eventId: 'asdfasdf',
+          senderId: '@test:example.com',
+          originServerTs: DateTime.now(),
+          room: room,
+          stateKey: '1675856324414gzczMtfzTk0DKgEw'));
+      expect(room.hasActiveGroupCall, true);
+      expect(room.activeGroupCallEvents.length, 1);
+      expect(
+          await room
+              .sendGroupCallTerminateEvent('1675856324414gzczMtfzTk0DKgEw'),
+          'groupCall');
+      room.setState(Event(
+          content: {
+            'm.intent': 'm.prompt',
+            'm.type': 'm.video',
+            'm.terminated': 'call_ended'
+          },
+          type: EventTypes.GroupCallPrefix,
+          eventId: 'asdfasdf',
+          senderId: '@test:example.com',
+          originServerTs: DateTime.now(),
+          room: room,
+          stateKey: '1675856324414gzczMtfzTk0DKgEw'));
+      expect(room.hasActiveGroupCall, false);
+      expect(room.activeGroupCallEvents.length, 0);
+    });
+
+    test('group call participants count', () {
+      room.setState(
+        Event(
+            senderId: '@test:example.com',
+            type: EventTypes.GroupCallMemberPrefix,
+            room: room,
+            eventId: '1234177',
+            content: {
+              'm.calls': [
+                {
+                  'm.call_id': '1674811256006mfqnmsAbzqxjYtWZ',
+                  'm.devices': [
+                    {
+                      'device_id': 'ZEEGCGPTGI',
+                      'session_id': 'fhovqxwcasdfr',
+                      'expires_ts': DateTime.now()
+                          .add(Duration(minutes: 1))
+                          .millisecondsSinceEpoch,
+                      'feeds': [
+                        {'purpose': 'm.usermedia'}
+                      ]
+                    },
+                  ]
+                }
+              ],
+            },
+            originServerTs: DateTime.now(),
+            stateKey: '@test:example.com'),
+      );
+      room.setState(
+        Event(
+            senderId: '@test0:example.com',
+            type: EventTypes.GroupCallMemberPrefix,
+            room: room,
+            eventId: '1234177',
+            content: {
+              'm.calls': [
+                {
+                  'm.call_id': '1674811256006mfqnmsAbzqxjYtWZ',
+                  'm.devices': [
+                    {
+                      'device_id': 'ZEEGCGPTGI',
+                      'session_id': 'fhovqxwcasdfr',
+                      'expires_ts': DateTime.now()
+                          .add(Duration(minutes: 2))
+                          .millisecondsSinceEpoch,
+                      'feeds': [
+                        {'purpose': 'm.usermedia'}
+                      ]
+                    },
+                  ]
+                }
+              ],
+            },
+            originServerTs: DateTime.now(),
+            stateKey: '@test0:example.com'),
+      );
+      room.setState(
+        Event(
+            senderId: '@test2:example.com',
+            type: EventTypes.GroupCallMemberPrefix,
+            room: room,
+            eventId: '1231234124123',
+            content: {
+              'm.calls': [
+                {
+                  'm.call_id': '1674811256006mfqnmsAbzqxjYtWZ',
+                  'm.devices': [
+                    {
+                      'device_id': 'ZEEGCGPTGI',
+                      'session_id': 'fhovqxwcasdfr',
+                      'feeds': [
+                        {'purpose': 'm.usermedia'}
+                      ]
+                    },
+                  ]
+                }
+              ],
+            },
+            originServerTs: DateTime.now(),
+            stateKey: '@test2:example.com'),
+      );
+      room.setState(
+        Event(
+            senderId: '@test3:example.com',
+            type: EventTypes.GroupCallMemberPrefix,
+            room: room,
+            eventId: '123123412445',
+            content: {
+              'm.calls': [
+                {
+                  'm.call_id': '1674811256006mfqnmsAbzqxjYtWZ',
+                  'm.devices': [
+                    {
+                      'device_id': 'ZEEGCGPTGI',
+                      'session_id': 'fhovqxwcasdfr',
+                      'expires_ts': DateTime.now()
+                          .subtract(Duration(minutes: 1))
+                          .millisecondsSinceEpoch,
+                      'feeds': [
+                        {'purpose': 'm.usermedia'}
+                      ]
+                    },
+                  ]
+                }
+              ],
+            },
+            originServerTs: DateTime.now(),
+            stateKey: '@test3:example.com'),
+      );
+      expect(
+          room.groupCallParticipantCount('1674811256006mfqnmsAbzqxjYtWZ'), 2);
+    });
     test('logout', () async {
       await matrix.logout();
     });

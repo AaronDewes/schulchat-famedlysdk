@@ -231,8 +231,10 @@ class Timeline {
     if (room.encrypted && room.client.encryptionEnabled) {
       for (var i = 0; i < newEvents.length; i++) {
         if (newEvents[i].type == EventTypes.Encrypted) {
-          newEvents[i] = await room.client.encryption!
-              .decryptRoomEvent(room.id, newEvents[i]);
+          newEvents[i] = await room.client.encryption!.decryptRoomEvent(
+            room.id,
+            newEvents[i],
+          );
         }
       }
     }
@@ -318,8 +320,12 @@ class Timeline {
         if (events[i].type == EventTypes.Encrypted &&
             events[i].messageType == MessageTypes.BadEncrypted &&
             events[i].content['session_id'] == sessionId) {
-          events[i] = await encryption.decryptRoomEvent(room.id, events[i],
-              store: true);
+          events[i] = await encryption.decryptRoomEvent(
+            room.id,
+            events[i],
+            store: true,
+            updateType: EventUpdateType.history,
+          );
           onChange?.call(i);
           if (events[i].type != EventTypes.Encrypted) {
             decryptAtLeastOneEvent = true;
@@ -597,8 +603,8 @@ class Timeline {
           var event = Event.fromMatrixEvent(matrixEvent, room);
           if (event.type == EventTypes.Encrypted && encryption != null) {
             event = await encryption.decryptRoomEvent(room.id, event);
-            if (event.type == EventTypes.Encrypted ||
-                event.messageType == MessageTypes.BadEncrypted ||
+            if (event.type == EventTypes.Encrypted &&
+                event.messageType == MessageTypes.BadEncrypted &&
                 event.content['can_request_session'] == true) {
               // Await requestKey() here to ensure decrypted message bodies
               await event.requestKey();

@@ -325,86 +325,305 @@ void main() {
       expect(evaluator.match(event).notify, false);
     });
 
-    test('state events and empty pattern', () async {
-      final stateEventObj = <String, dynamic>{
-        'event_id': id,
-        'origin_server_ts': timestamp,
-        'room_id': '!testroom:example.abc',
-        'sender': senderID,
-        'state_key': '',
-        'type': 'm.room.tombstone',
-        'content': {
-          'body': 'This room has been replaced',
-          'replacement_room': '!testroom2:example.abc'
-        }
-      };
-      // without state_key
-      final nonStateEventObj = <String, dynamic>{
-        'event_id': id,
-        'origin_server_ts': timestamp,
-        'room_id': '!testroom:example.abc',
-        'sender': senderID,
-        'type': 'm.room.tombstone',
-        'content': {'body': 'Not a state event'}
-      };
-      final event = Event.fromJson(stateEventObj, room);
-      final nonStateEvent = Event.fromJson(nonStateEventObj, room);
-
-      final ruleset = PushRuleSet(override: [
-        PushRule(ruleId: 'my.rule', default$: false, enabled: true, actions: [
-          'notify',
-          {'set_tweak': 'highlight', 'value': true},
-          {'set_tweak': 'sound', 'value': 'goose.wav'},
-        ], conditions: [
-          PushCondition(
-              kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
-          PushCondition(kind: 'event_match', key: 'state_key', pattern: ''),
-        ])
+    test('invalid content rule', () async {
+      final invalid_content_ruleset = PushRuleSet(content: [
+        PushRule(
+          ruleId: 'my.rule',
+          default$: false,
+          enabled: true,
+          actions: [
+            'notify',
+            {'set_tweak': 'highlight', 'value': true},
+            {'set_tweak': 'sound', 'value': 'goose.wav'},
+          ],
+          // pattern: 'fox', <- no pattern!
+        )
       ]);
 
-      final evaluator = PushruleEvaluator.fromRuleset(ruleset);
-      expect(evaluator.match(event).notify, true);
+      expect(() => PushruleEvaluator.fromRuleset(invalid_content_ruleset),
+          returnsNormally);
 
-      // don't match if state_key is a non-empty string
-      event.stateKey = '23';
-      expect(evaluator.match(event).notify, false);
-      // don't match if state_key is missing
-      expect(evaluator.match(nonStateEvent).notify, false);
-    });
-
-    test('event_match without pattern', () async {
-      final stateEventObj = <String, dynamic>{
-        'event_id': id,
-        'origin_server_ts': timestamp,
-        'room_id': '!testroom:example.abc',
-        'sender': senderID,
-        'state_key': '',
-        'type': 'm.room.tombstone',
-        'content': {
-          'body': 'This room has been replaced',
-          'replacement_room': '!testroom2:example.abc'
-        }
-      };
-      final event = Event.fromJson(stateEventObj, room);
-
-      final ruleset = PushRuleSet(override: [
-        PushRule(ruleId: 'my.rule', default$: false, enabled: true, actions: [
-          'notify',
-          {'set_tweak': 'highlight', 'value': true},
-          {'set_tweak': 'sound', 'value': 'goose.wav'},
-        ], conditions: [
-          PushCondition(
-              kind: 'event_match', key: 'type', pattern: 'm.room.tombstone'),
-          PushCondition(kind: 'event_match', key: 'state_key'),
-        ])
-      ]);
-
-      final evaluator = PushruleEvaluator.fromRuleset(ruleset);
-      expect(evaluator.match(event).notify, true);
-
-      // don't match if state_key contains arbitrary value
-      event.stateKey = '23';
-      expect(evaluator.match(event).notify, false);
+      final dendriteRuleset = PushRuleSet.fromJson(json.decode('''{
+  "global": {
+    "override": [
+      {
+        "rule_id": ".m.rule.master",
+        "default": true,
+        "enabled": false,
+        "actions": [
+          "dont_notify"
+        ],
+        "conditions": [],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.suppress_notices",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "dont_notify"
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "content.msgtype",
+            "pattern": "m.notice"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.invite_for_me",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "sound",
+            "value": "default"
+          },
+          {
+            "set_tweak": "highlight",
+            "value": false
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.member"
+          },
+          {
+            "kind": "event_match",
+            "key": "content.membership",
+            "pattern": "invite"
+          },
+          {
+            "kind": "event_match",
+            "key": "state_key",
+            "pattern": "@deepbluev7:dendrite.matrix.org"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.member_event",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "dont_notify"
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.member"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.contains_display_name",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "sound",
+            "value": "default"
+          },
+          {
+            "set_tweak": "highlight",
+            "value": true
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "contains_display_name"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.tombstone",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "highlight",
+            "value": false
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.tombstone"
+          },
+          {
+            "kind": "event_match",
+            "key": "state_key"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.roomnotif",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "highlight",
+            "value": false
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "content.body",
+            "pattern": "@room"
+          },
+          {
+            "kind": "sender_notification_permission",
+            "key": "room"
+          }
+        ],
+        "pattern": ""
+      }
+    ],
+    "content": [
+      {
+        "rule_id": ".m.rule.contains_user_name",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "sound",
+            "value": "default"
+          },
+          {
+            "set_tweak": "highlight",
+            "value": true
+          }
+        ],
+        "conditions": null,
+        "pattern": "deepbluev7"
+      }
+    ],
+    "underride": [
+      {
+        "rule_id": ".m.rule.call",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "sound",
+            "value": "ring"
+          },
+          {
+            "set_tweak": "highlight",
+            "value": false
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.call.invite"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.encrypted_room_one_to_one",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "highlight",
+            "value": false
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "room_member_count",
+            "is": "2"
+          },
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.encrypted"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.room_one_to_one",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify",
+          {
+            "set_tweak": "highlight",
+            "value": false
+          }
+        ],
+        "conditions": [
+          {
+            "kind": "room_member_count",
+            "is": "2"
+          },
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.message"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.message",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify"
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.message"
+          }
+        ],
+        "pattern": ""
+      },
+      {
+        "rule_id": ".m.rule.encrypted",
+        "default": true,
+        "enabled": true,
+        "actions": [
+          "notify"
+        ],
+        "conditions": [
+          {
+            "kind": "event_match",
+            "key": "type",
+            "pattern": "m.room.encrypted"
+          }
+        ],
+        "pattern": ""
+      }
+    ]
+  }
+}
+'''));
+      expect(() => PushruleEvaluator.fromRuleset(dendriteRuleset),
+          returnsNormally);
     });
   });
 }

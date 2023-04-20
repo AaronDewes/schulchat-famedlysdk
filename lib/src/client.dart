@@ -668,8 +668,8 @@ class Client extends MatrixApi {
     if (groupCall) {
       powerLevelContentOverride ??= {};
       powerLevelContentOverride['events'] = <String, dynamic>{
-        'org.matrix.msc3401.call.member': 0,
-        'org.matrix.msc3401.call': 0,
+        EventTypes.GroupCallMemberPrefix: 0,
+        EventTypes.GroupCallPrefix: 0,
       };
     }
     final roomId = await createRoom(
@@ -756,9 +756,33 @@ class Client extends MatrixApi {
   Future<Profile> get ownProfile => fetchOwnProfile();
 
   /// Returns the user's own displayname and avatar url. In Matrix it is possible that
-  /// one user can have different displaynames and avatar urls in different rooms. So
-  /// this endpoint first checks if the profile is the same in all rooms. If not, the
-  /// profile will be requested from the homserver.
+  /// one user can have different displaynames and avatar urls in different rooms.
+  /// Tries to get the profile from homeserver first, if failed, falls back to a profile
+  /// from a room where the user exists. Set `useServerCache` to true to get any
+  /// prior value from this function
+  Future<Profile> fetchOwnProfileFromServer(
+      {bool useServerCache = false}) async {
+    try {
+      return await getProfileFromUserId(
+        userID!,
+        getFromRooms: false,
+        cache: useServerCache,
+      );
+    } catch (e) {
+      Logs().w(
+          '[Matrix] getting profile from homeserver failed, falling back to first room with required profile');
+      return await getProfileFromUserId(
+        userID!,
+        getFromRooms: true,
+        cache: true,
+      );
+    }
+  }
+
+  /// Returns the user's own displayname and avatar url. In Matrix it is possible that
+  /// one user can have different displaynames and avatar urls in different rooms.
+  /// This returns the profile from the first room by default, override `getFromRooms`
+  /// to false to fetch from homeserver.
   Future<Profile> fetchOwnProfile({
     bool getFromRooms = true,
     bool cache = true,
@@ -769,7 +793,8 @@ class Client extends MatrixApi {
         cache: cache,
       );
 
-  final Map<String, ProfileInformation> _profileCache = {};
+  final Map<String, ProfileInformation> _profileRoomsCache = {};
+  final Map<String, ProfileInformation> _profileServerCache = {};
 
   /// Get the combined profile information for this user.
   /// If [getFromRooms] is true then the profile will first be searched from the
@@ -780,12 +805,14 @@ class Client extends MatrixApi {
   /// become outdated if the user changes the displayname or avatar in this session.
   Future<Profile> getProfileFromUserId(String userId,
       {bool cache = true, bool getFromRooms = true}) async {
-    var profile = _profileCache[userId];
+    var profile =
+        getFromRooms ? _profileRoomsCache[userId] : _profileServerCache[userId];
     if (cache && profile != null) {
       return Profile(
-          userId: userId,
-          displayName: profile.displayname,
-          avatarUrl: profile.avatarUrl);
+        userId: userId,
+        displayName: profile.displayname,
+        avatarUrl: profile.avatarUrl,
+      );
     }
 
     if (getFromRooms) {
@@ -795,20 +822,27 @@ class Client extends MatrixApi {
       if (room != null) {
         final user =
             room.getParticipants().firstWhere((User user) => user.id == userId);
-        return Profile(
-            userId: userId,
-            displayName: user.displayName,
-            avatarUrl: user.avatarUrl);
+        final profileFromRooms = Profile(
+          userId: userId,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+        );
+        _profileRoomsCache[userId] = ProfileInformation(
+          avatarUrl: profileFromRooms.avatarUrl,
+          displayname: profileFromRooms.displayName,
+        );
+        return profileFromRooms;
       }
     }
     profile = await getUserProfile(userId);
-    if (cache || _profileCache.containsKey(userId)) {
-      _profileCache[userId] = profile;
+    if (cache || _profileServerCache.containsKey(userId)) {
+      _profileServerCache[userId] = profile;
     }
     return Profile(
-        userId: userId,
-        displayName: profile.displayname,
-        avatarUrl: profile.avatarUrl);
+      userId: userId,
+      displayName: profile.displayname,
+      avatarUrl: profile.avatarUrl,
+    );
   }
 
   final List<ArchivedRoom> _archivedRooms = [];
@@ -873,8 +907,11 @@ class Client extends MatrixApi {
           // Try to decrypt encrypted events but don't update the database.
           if (leftRoom.encrypted && leftRoom.client.encryptionEnabled) {
             if (timeline.events[i].type == EventTypes.Encrypted) {
-              timeline.events[i] = await leftRoom.client.encryption!
-                  .decryptRoomEvent(leftRoom.id, timeline.events[i]);
+              timeline.events[i] =
+                  await leftRoom.client.encryption!.decryptRoomEvent(
+                leftRoom.id,
+                timeline.events[i],
+              );
             }
           }
         }
@@ -1415,7 +1452,8 @@ class Client extends MatrixApi {
         await olm.init();
         olm.get_library_version();
         encryption = Encryption(client: this);
-      } catch (_) {
+      } catch (e) {
+        Logs().e('Error initializing encryption $e');
         await encryption?.dispose();
         encryption = null;
       }
@@ -1713,10 +1751,11 @@ class Client extends MatrixApi {
       }
       dynamic syncError;
       await _checkSyncFilter();
+      timeout ??= const Duration(seconds: 30);
       final syncRequest = sync(
         filter: syncFilterId,
         since: prevBatch,
-        timeout: timeout?.inMilliseconds ?? 30000,
+        timeout: timeout.inMilliseconds,
         setPresence: syncPresence,
       ).then((v) => Future<SyncUpdate?>.value(v)).catchError((e) {
         syncError = e;
@@ -1724,7 +1763,8 @@ class Client extends MatrixApi {
       });
       _currentSyncId = syncRequest.hashCode;
       onSyncStatus.add(SyncStatusUpdate(SyncStatus.waitingForResponse));
-      final syncResp = await syncRequest;
+      final syncResp =
+          await syncRequest.timeout(timeout + const Duration(seconds: 10));
       onSyncStatus.add(SyncStatusUpdate(SyncStatus.processing));
       if (syncResp == null) throw syncError ?? 'Unknown sync error';
       if (_currentSyncId != syncRequest.hashCode) {

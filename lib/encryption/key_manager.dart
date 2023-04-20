@@ -190,7 +190,22 @@ class KeyManager {
           event.content['session_id'] == sessionId) {
         final decrypted = encryption.decryptRoomEventSync(roomId, event);
         if (decrypted.type != EventTypes.Encrypted) {
-          room.setState(decrypted);
+          // Remove this from the state to make sure it does not appear as last event
+          room.states.remove(EventTypes.Encrypted);
+          // Set the decrypted event as last event by adding it to the state
+          room.states[decrypted.type] = {'': decrypted};
+          // Also store in database
+          final database = client.database;
+          if (database != null) {
+            await database.storeEventUpdate(
+              EventUpdate(
+                roomID: room.id,
+                type: EventUpdateType.state,
+                content: decrypted.toJson(),
+              ),
+              client,
+            );
+          }
         }
       }
       // and finally broadcast the new session
@@ -382,6 +397,14 @@ class KeyManager {
                   .where((e) => !e.value)
                   .map((e) => e.key))
               : <String>{};
+
+          // check if a device got removed
+          if (oldDeviceIds.difference(newDeviceIds).isNotEmpty) {
+            wipe = true;
+            break;
+          }
+
+          // check if any new devices need keys
           final newDevices = newDeviceIds.difference(oldDeviceIds);
           if (newDeviceIds.isNotEmpty) {
             devicesToReceive.addAll(newDeviceKeys.where(

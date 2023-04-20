@@ -1,6 +1,86 @@
+## [0.17.1] - 20th Feb 2023
+- chore: add missing awaits in group call enter and leave funcs (td)
+- chore: add useServerCache option to fetchOwnProfileFromServer and fix missing awaits (td)
+
+## [0.17.0] - 17th Feb 2023
+- fix: ability to upgrade audio calls to video calls (td)
+- chore: add a fetchOwnProfileFromServer method which tries to get ownProfile from server first, disk then (td)
+- fix: clean expired member state events in group calls (td)
+- fix: hasActiveGroup call now checks all group calls (td)
+- fix: Check if argument is valid mxid in /maskasdm command (Christian Pauly)
+- fix: Fake User object (Christian Pauly)
+- fix: Request key in searchEvent method crashes because of wrong preconditions (Christian Pauly)
+- refactor: Check config at file sending after placing fake event and add error handling (Krille)
+- chore: bump dart to 2.18 (Nicolas Werner)
+- fix: setMicrophoneMuted is now async to match setVideoMuted (td)
+- fix: implement activeGroupCallEvents to get all active group call state events in a room (td)
+- refactor: (BREAKING CHANGE) move staleCallChecker and expires_Ts stuff to an extension on Room, instead of Voip because it makes much more sense per room rather than on voip, also makes testing easier (td)
+- fix: populate local groupCalls list on instantiating VOIP() (td)
+- fix: starting stale call checker is now handled by the sdk itself because clients can forget to do so (td)
+
+## [0.16.0] - 1st Feb 2023
+
+- chore: bump flutter and dart images (td)
+- fix: move expires_ts according to spec (breaks group call compatibility with older sdks) (td)
+- fix: reject call on own device if you get a call reject (td)
+- feat: active speaker in group calls (td)
+- fix: missed incomingCallRoomId case in removing glare stuff during group calls (td)
+- fix: fix glare side effects for group calls. (Duan Weiwei)
+- chore: bump version (td)
+- chore: deprecate isBackground (td)
+- fix: try to stop ringtone on call termination (td)
+- fix: Fix can't correctly remove/cleanup call in group call. (Duan Weiwei)
+- fix: send all servers for getIceServers (td)
+- fix: only send call reject event when needed (td)
+- fix: use tagged dart images in ci (td)
+
+## [0.15.13] - 23rd Jan 2023
+
+- fix: glare (td)
+- fix: update groupCalls state stream (td)
+- fix: tweak some stuff in group calls code for group calls onboarding feat (td)
+- feat: add method to generate the matrix.to link (td)
+- fix: follow-up OLM matcher (The one with the braid)
+- refactor: migrate integration tests to more stable setup (TheOneWithTheBraid)
+
+## [0.15.12] - 18th Jan 2023
+This deprecates `room.displayname` is favor of `room.getLocalizedDisplayname()`.
+For migration you can just replace it everywhere. It will use the
+MatrixDefaultLocalizations if you don't set one.
+
+- Fix the timing error when the candidate arrives before the answer sdp. (Duan Weiwei)
+- chore: use proper matchers in integration tests (Nicolas Werner)
+- fix: Last message set incorrectly on all session key received (Krille)
+- fix: play ringtone for incoming calls before trying to getUserMedia (td)
+- fix: propogate filter to getParticipants in requestParticipants (td)
+- refactor: room displayname calculation (Krille)
+
+## [0.15.11] - 27th Dec 2022
+
+- fix: Fix the called party not sending screensharing correctly. (cloudwebrtc)
+- test: Add test for dendrites invalid pushrules (Nicolas Werner)
+- test: Add tests for account data store and retrieve (Nicolas Werner)
+
+## [0.15.10] - 23rd Dec 2022
+
+- fix: make some Room getters null safe (TheOneWithTheBraid)
+- fix: Store decrypted last event in store (Krille Fear)
+
+## [0.15.9] - 14th Dec 2022
+
+- refactor: Key manager megolm handling to make key generation more efficient
+
+## [0.15.8] - 12th Dec 2022
+
+- fix: leaved direct chat name (Reza)
+- chore: Add voip connection tester (td)
+
 ## [0.15.7] - 1st Dec 2022
+
 - fix: await requestKey() in event search (Philipp Grieshofer)
 - fix: Request session key for bad encrypted events before the text search is carried out (Philipp Grieshofer)
+
+## [0.15.6] - 24th Nov 2022
 
 ## [0.15.6] - 24th Nov 2022
 - feat: migrate e2ee test to DinD (TheOneWithTheBraid)
@@ -8,19 +88,24 @@
 - feat: Check if a key is verified by any master key (Reza)
 
 ## [0.15.5] - 22nd Nov 2022
+
 - fix: follow account kind in registration (TheOneWithTheBraid)
 
 ## [0.15.4] - 21st Nov 2022
+
 - feat: support MSC 3935: cute events (TheOneWithTheBraid)
 - fix: PowerLevel calculation regarding to spec (Krille Fear)
 
 ## [0.15.3] - 18th Nov 2022
+
 - fix: handleMissedCalls on remote hangups before answer (td)
 
 ## [0.15.2] - 16th Nov 2022
+
 - fix: recover from very unlikely key upload errors (Nicolas Werner)
 
 ## [0.15.1] - 14th Nov 2022
+
 - chore: Follow up fix for request users in invite rooms (Christian Pauly)
 - chore: Put all hard-coded timeout parameters into the Timeouts class. (cloudwebrtc)
 - chore: upgrade webrtc_interface, remove WebRTCDelegate.cloneStream. (cloudwebrtc)
@@ -31,6 +116,7 @@
 - refactor: Improve error handling for no olm session found exception (Christian Pauly)
 
 ## [0.15.0] - 28th Oct 2022
+
 - chore: reduce error logging level of groupCall is null (td)
 - fix: filter list for adding p2p call events (td)
 - refactor: Remove deprecated fluffybox (Christian Pauly)
@@ -39,14 +125,17 @@
 - fix: Do not try to decrypt redacted events (Christian Pauly)
 
 ## [0.14.4] - 26th Oct 2022
+
 - fix: Do not wait for first sync after migration init
 
 ## [0.14.3] - 24th Oct 2022
+
 - fix: Do not assume that push rules are never malformed in account data
 - chore: change codeowners
 - refactor: Remove unused imports
 
 ## [0.14.2] - 18th Oct 2022
+
 - Improve ice connection speed. (Duan Weiwei)
 - chore: fix exception test after api_lite update (Nicolas Werner)
 - feat: Add getter for own unverified devices (Christian Pauly)
@@ -56,6 +145,7 @@
 - refactor: Use DateTime method instead of comparing milliseconds (Christian Pauly)
 
 ## [0.14.1] - 20th Sep 2022
+
 - chore: Fire events by default during hangup. (cloudwebrtc)
 - chore: Properly close usermedia/screen stream for 1v1/group calls. (cloudwebrtc)
 - chore: fix analyzer error. (cloudwebrtc)
