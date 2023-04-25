@@ -1542,6 +1542,7 @@ class Client extends MatrixApi {
   */
   void loadReadReceiptRequests(Function(bool) callback) {
     readReceiptRequests.clear();
+    roomsWithOpenReadReceipts.clear();
     _openReadReceiptsCallback = callback;
     readReceiptRequestsLoading = _loadReadReceiptRequests();
   }
