@@ -2015,6 +2015,24 @@ class Room {
     return;
   }
 
+  Future<void> setRestrictedJoinRules(allowedRooms) async {
+    final allow = [];
+    for (final r in allowedRooms) {
+      allow.add({
+        'type': 'm.room_membership',
+        'room_id': r,
+      });
+    }
+
+    await client.setRoomStateWithKey(
+      id,
+      EventTypes.RoomJoinRules,
+      '',
+      {'join_rule': 'restricted', 'allow': allow},
+    );
+    return;
+  }
+
   /// Whether the user has the permission to change the join rules.
   bool get canChangeJoinRules => canChangeStateEvent(EventTypes.RoomJoinRules);
 
