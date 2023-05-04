@@ -34,7 +34,7 @@ import 'package:matrix/src/utils/space_child.dart';
 
 enum PushRuleState { notify, mentionsOnly, dontNotify }
 
-enum JoinRules { public, knock, invite, private }
+enum JoinRules { public, knock, invite, private, restricted }
 
 enum GuestAccess { canJoin, forbidden }
 
@@ -2000,6 +2000,22 @@ class Room {
         ? JoinRules.values.firstWhereOrNull(
             (r) => r.toString().replaceAll('JoinRules.', '') == joinRule)
         : null;
+  }
+
+  // TODO extend JoinRules
+  List<String>? get restrictedJoinRulesAllowedRooms {
+    final joinRule = getState(EventTypes.RoomJoinRules)?.content['join_rule'];
+    if (joinRule == 'restricted') {
+      final allowedRooms = getState(EventTypes.RoomJoinRules)?.content['allow'];
+      final List<String> result = [];
+      if (allowedRooms != null && allowedRooms.isNotEmpty) {
+        for (final r in allowedRooms) {
+          result.add(r['room_id'].toString());
+        }
+      }
+      return result;
+    }
+    return null;
   }
 
   /// Changes the join rules. You should check first if the user is able to change it.
