@@ -2176,6 +2176,10 @@ class Room {
       getState(EventTypes.RoomCreate)?.content.tryGet<String>('type') ==
       RoomCreationTypes.mSpace; // TODO: Magic string!
 
+  bool get isSCGroupRoom =>
+      getState(EventTypes.RoomCreate)?.content.tryGet<String>('type') ==
+      'm.scgroup'; // TODO: Magic string!
+
   /// The parents of this room. Currently this SDK doesn't yet set the canonical
   /// flag and is not checking if this room is in fact a child of this space.
   /// You should therefore not rely on this and always check the children of
