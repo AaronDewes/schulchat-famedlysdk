@@ -1471,7 +1471,6 @@ class HiveCollectionsDatabase extends DatabaseApi {
   Future<Map<String, dynamic>?> getAddressbook() async {
     final abook = await _addressbookBox.get(TupleKey('abook').toString());
     if (abook == null) return null;
-    if (abook == '{}') return {};
     return copyMap(abook);
   }
 

@@ -2173,6 +2173,24 @@ class Room {
       getState(EventTypes.RoomCreate)?.content.tryGet<String>('type') ==
       'm.scgroup'; // TODO: Magic string!
 
+  bool isBoundToSchool(name) =>
+      getState(EventTypes.SchoolIdentifier)?.content.tryGet<String>('name') ==
+      name;
+
+  String get schoolId {
+    final name = getState(EventTypes.SchoolIdentifier)?.content['name'];
+    return (name is String) ? name : '';
+  }
+
+  Future<void> setSchoolId(String name) async {
+    // update in case it is not set yet
+    if (schoolId != name) {
+      await client.setRoomStateWithKey(id, EventTypes.SchoolIdentifier, '', {
+        'name': name,
+      });
+    }
+  }
+
   /// Generates a matrix.to link with appropriate routing info to share the room
   Future<Uri> matrixToInviteLink() async {
     if (canonicalAlias.isNotEmpty) {

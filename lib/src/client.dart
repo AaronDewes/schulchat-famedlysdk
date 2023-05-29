@@ -203,6 +203,7 @@ class Client extends MatrixApi {
       EventTypes.RoomCanonicalAlias,
       EventTypes.RoomTombstone,
       EventTypes.RoomCreate,
+      EventTypes.SchoolIdentifier,
     ]);
     roomPreviewLastEvents.addAll([
       EventTypes.Message,
@@ -3146,6 +3147,16 @@ class Client extends MatrixApi {
       Logs().i('Error fetchAddressbook: ${e.errcode} ${e.errorMessage}');
       return {};
     }
+  }
+
+  Future<Map<String, String>> getSchools() async {
+    final abookJson = await fetchAddressbook();
+    final schools = abookJson.keys.where((key) => key != 'users').toList();
+    final Map<String, String> availableSchools = {};
+    for (final s in schools) {
+      availableSchools[s] = abookJson[s]['name'];
+    }
+    return availableSchools;
   }
 }
 
