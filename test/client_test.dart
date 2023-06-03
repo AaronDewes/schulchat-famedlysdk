@@ -360,16 +360,6 @@ void main() {
       await matrix.setMuteAllPushNotifications(false);
     });
 
-    test('createSpace', () async {
-      await matrix.createSpace(
-        name: 'space',
-        topic: 'My test space',
-        spaceAliasName: '#myspace:example.invalid',
-        invite: ['@alice:example.invalid'],
-        roomVersion: '3',
-      );
-    });
-
     test('sync state event in-memory handling', () async {
       final roomId = '!726s6s6q:example.com';
       final room = matrix.getRoomById(roomId)!;

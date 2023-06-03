@@ -30,7 +30,6 @@ import 'package:matrix/src/utils/crypto/crypto.dart';
 import 'package:matrix/src/utils/file_send_request_credentials.dart';
 import 'package:matrix/src/utils/markdown.dart';
 import 'package:matrix/src/utils/marked_unread.dart';
-import 'package:matrix/src/utils/space_child.dart';
 
 enum PushRuleState { notify, mentionsOnly, dontNotify }
 
@@ -2170,63 +2169,9 @@ class Room {
   TombstoneContent? get extinctInformations =>
       getState(EventTypes.RoomTombstone)?.parsedTombstoneContent;
 
-  /// Checks if the `m.room.create` state has a `type` key with the value
-  /// `m.space`.
-  bool get isSpace =>
-      getState(EventTypes.RoomCreate)?.content.tryGet<String>('type') ==
-      RoomCreationTypes.mSpace; // TODO: Magic string!
-
   bool get isSCGroupRoom =>
       getState(EventTypes.RoomCreate)?.content.tryGet<String>('type') ==
       'm.scgroup'; // TODO: Magic string!
-
-  /// The parents of this room. Currently this SDK doesn't yet set the canonical
-  /// flag and is not checking if this room is in fact a child of this space.
-  /// You should therefore not rely on this and always check the children of
-  /// the space.
-  List<SpaceParent> get spaceParents =>
-      states[EventTypes.spaceParent]
-          ?.values
-          .map((state) => SpaceParent.fromState(state))
-          .where((child) => child.via?.isNotEmpty ?? false)
-          .toList() ??
-      [];
-
-  /// List all children of this space. Children without a `via` domain will be
-  /// ignored.
-  /// Children are sorted by the `order` while those without this field will be
-  /// sorted at the end of the list.
-  List<SpaceChild> get spaceChildren => !isSpace
-      ? throw Exception('Room is not a space!')
-      : (states[EventTypes.spaceChild]
-              ?.values
-              .map((state) => SpaceChild.fromState(state))
-              .where((child) => child.via?.isNotEmpty ?? false)
-              .toList() ??
-          [])
-    ..sort((a, b) => a.order.isEmpty || b.order.isEmpty
-        ? b.order.compareTo(a.order)
-        : a.order.compareTo(b.order));
-
-  /// Adds or edits a child of this space.
-  Future<void> setSpaceChild(
-    String roomId, {
-    List<String>? via,
-    String? order,
-    bool? suggested,
-  }) async {
-    if (!isSpace) throw Exception('Room is not a space!');
-    via ??= [client.userID!.domain!];
-    await client.setRoomStateWithKey(id, EventTypes.spaceChild, roomId, {
-      'via': via,
-      if (order != null) 'order': order,
-      if (suggested != null) 'suggested': suggested,
-    });
-    await client.setRoomStateWithKey(roomId, EventTypes.spaceParent, id, {
-      'via': via,
-    });
-    return;
-  }
 
   /// Generates a matrix.to link with appropriate routing info to share the room
   Future<Uri> matrixToInviteLink() async {
@@ -2284,11 +2229,6 @@ class Room {
     return Uri.parse(
         'https://matrix.to/#/${Uri.encodeComponent(id)}$queryString');
   }
-
-  /// Remove a child from this space by setting the `via` to an empty list.
-  Future<void> removeSpaceChild(String roomId) => !isSpace
-      ? throw Exception('Room is not a space!')
-      : setSpaceChild(roomId, via: const []);
 
   @override
   bool operator ==(dynamic other) => (other is Room && other.id == id);
