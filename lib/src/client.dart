@@ -3130,6 +3130,23 @@ class Client extends MatrixApi {
       );
     }
   }
+
+  Future<Map<String, dynamic>> fetchAddressbook() async {
+    final abookFromCache = await database?.getAddressbook();
+    if (abookFromCache != null) return abookFromCache;
+
+    try {
+      final Map<String, dynamic> abookJson = await request(
+        RequestType.GET,
+        '/client/unstable/fairkom.fairmessenger.addressbook/addressbook',
+      );
+      await database?.setAddressbook(abookJson);
+      return abookJson;
+    } on MatrixException catch (e) {
+      Logs().i('Error fetchAddressbook: ${e.errcode} ${e.errorMessage}');
+      return {};
+    }
+  }
 }
 
 class SdkError {

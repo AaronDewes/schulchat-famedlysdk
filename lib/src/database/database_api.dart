@@ -310,6 +310,9 @@ abstract class DatabaseApi {
 
   Future<Map<String, Map>> getReadReceiptRequiredEvents();
 
+  Future<Map<String, dynamic>?> getAddressbook();
+  Future<void> setAddressbook(Map<String, dynamic> abook);
+
   Future<dynamic> close();
 
   Future<void> transaction(Future<void> Function() action);

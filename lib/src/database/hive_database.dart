@@ -82,6 +82,10 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
 
   late LazyBox _seenDeviceKeysBox;
 
+  late LazyBox _addressbookBox;
+
+  String get _addressbookBoxName => '$name.box.addressbook';
+
   String get _clientBoxName => '$name.box.client';
 
   String get _accountDataBoxName => '$name.box.account_data';
@@ -148,6 +152,7 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
         action(_presencesBox),
         action(_timelineFragmentsBox),
         action(_eventsBox),
+        action(_addressbookBox),
         action(_seenDeviceIdsBox),
         action(_seenDeviceKeysBox),
       ]);
@@ -229,6 +234,10 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
       _seenDeviceKeysBoxName,
       encryptionCipher: encryptionCipher,
     );
+    _addressbookBox = await Hive.openLazyBox(
+      _addressbookBoxName,
+      encryptionCipher: encryptionCipher,
+    );
 
     // Check version and check if we need a migration
     final currentVersion = (await _clientBox.get('version') as int?);
@@ -288,6 +297,7 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
     await _roomStateBox.deleteAll(_roomStateBox.keys);
     await _roomMembersBox.deleteAll(_roomMembersBox.keys);
     await _eventsBox.deleteAll(_eventsBox.keys);
+    await _addressbookBox.deleteAll(_addressbookBox.keys);
     await _timelineFragmentsBox.deleteAll(_timelineFragmentsBox.keys);
     await _outboundGroupSessionsBox.deleteAll(_outboundGroupSessionsBox.keys);
     await _presencesBox.deleteAll(_presencesBox.keys);
@@ -1414,6 +1424,22 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
   @override
   Future<Map<String, Map>> getReadReceiptRequiredEvents() async {
     return Map();
+  }
+
+  // not sure if those methods are used, see hive_collections
+  @override
+  Future<Map<String, dynamic>?> getAddressbook() async {
+    final raw = await _addressbookBox.get(TupleKey('abook').toString());
+    if (raw == null) return null;
+    if (raw == '{}') return {};
+    return convertToJson(raw);
+  }
+
+  @override
+  Future<void> setAddressbook(Map<String, dynamic> abook) async {
+    await _addressbookBox.put(
+        TupleKey('abook').toString(), convertToJson(abook));
+    return;
   }
 
   @override

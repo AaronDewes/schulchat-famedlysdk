@@ -82,6 +82,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   late CollectionBox<Map> _requireReadReceiptBox;
 
+  late CollectionBox<Map> _addressbookBox;
+
   String get _clientBoxName => 'box_client';
 
   String get _accountDataBoxName => 'box_account_data';
@@ -122,6 +124,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   String get _requireReadReceiptBoxName => 'box_require_read_receipt';
 
+  String get _addressbookBoxName => 'box_addressbook';
+
   HiveCollectionsDatabase(this.name, this.path, {this.key});
 
   @override
@@ -151,6 +155,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         _seenDeviceIdsBoxName,
         _seenDeviceKeysBoxName,
         _requireReadReceiptBoxName,
+        _addressbookBoxName,
       },
       key: key,
       path: path,
@@ -220,6 +225,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
     _requireReadReceiptBox = await _collection.openBox(
       _requireReadReceiptBoxName,
     );
+    _addressbookBox = await _collection.openBox(
+      _addressbookBoxName,
+    );
     // Check version and check if we need a migration
     final currentVersion = int.tryParse(await _clientBox.get('version') ?? '');
     if (currentVersion == null) {
@@ -259,6 +267,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         _seenDeviceIdsBox.clear(),
         _seenDeviceKeysBox.clear(),
         _requireReadReceiptBox.clear(),
+        _addressbookBox.clear(),
         _collection.deleteFromDisk(),
       ]);
 
@@ -272,6 +281,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
         await _timelineFragmentsBox.clear();
         await _outboundGroupSessionsBox.clear();
         await _presencesBox.clear();
+        await _addressbookBox.clear();
         await _clientBox.delete('prev_batch');
       });
 
@@ -1458,6 +1468,20 @@ class HiveCollectionsDatabase extends DatabaseApi {
   }
 
   @override
+  Future<Map<String, dynamic>?> getAddressbook() async {
+    final abook = await _addressbookBox.get(TupleKey('abook').toString());
+    if (abook == null) return null;
+    if (abook == '{}') return {};
+    return copyMap(abook);
+  }
+
+  @override
+  Future<void> setAddressbook(Map<String, dynamic> abook) async {
+    await _addressbookBox.put(TupleKey('abook').toString(), abook);
+    return;
+  }
+
+  @override
   Future<String> exportDump() async {
     final dataMap = {
       _clientBoxName: await _clientBox.getAllValues(),
@@ -1484,6 +1508,7 @@ class HiveCollectionsDatabase extends DatabaseApi {
       _seenDeviceIdsBoxName: await _seenDeviceIdsBox.getAllValues(),
       _seenDeviceKeysBoxName: await _seenDeviceKeysBox.getAllValues(),
       _requireReadReceiptBoxName: await _requireReadReceiptBox.getAllValues(),
+      _addressbookBoxName: await _addressbookBox.getAllValues(),
     };
     final json = jsonEncode(dataMap);
     await clear();
@@ -1558,6 +1583,9 @@ class HiveCollectionsDatabase extends DatabaseApi {
       for (final key in json[_requireReadReceiptBoxName]!.keys) {
         await _requireReadReceiptBox.put(
             key, json[_requireReadReceiptBoxName]![key]);
+      }
+      for (final key in json[_addressbookBoxName]!.keys) {
+        await _addressbookBox.put(key, json[_addressbookBoxName]![key]);
       }
       return true;
     } catch (e, s) {
