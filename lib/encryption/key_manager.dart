@@ -639,8 +639,10 @@ class KeyManager {
           final sessionData = session.sessionData;
           Map<String, Object?>? decrypted;
           try {
-            decrypted = json.decode(decryption.decrypt(sessionData['ephemeral'],
-                sessionData['mac'], sessionData['ciphertext']));
+            decrypted = json.decode(decryption.decrypt(
+                sessionData['ephemeral'] as String,
+                sessionData['mac'] as String,
+                sessionData['ciphertext'] as String));
           } catch (e, s) {
             Logs().e('[LibOlm] Error decrypting room key', e, s);
           }
