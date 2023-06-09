@@ -262,7 +262,7 @@ class Room {
       final invitation = getState(EventTypes.RoomMember, client.userID!);
       if (invitation != null && invitation.unsigned?['prev_sender'] != null) {
         final name = unsafeGetUserFromMemoryOrFallback(
-                invitation.unsigned?['prev_sender'])
+                invitation.unsigned?['prev_sender'] as String)
             .calcDisplayname(i18n: i18n);
         return i18n.wasDirectChatDisplayName(name);
       }
@@ -1475,8 +1475,9 @@ class Room {
   Future<void> removeFromDirectChat() async {
     final directChats = client.directChats.copy();
     for (final k in directChats.keys) {
-      if (directChats[k] is List && directChats[k].contains(id)) {
-        directChats[k].remove(id);
+      final directChat = directChats[k];
+      if (directChat is List && directChat.contains(id)) {
+        directChat.remove(id);
       }
     }
 
