@@ -260,9 +260,10 @@ class Room {
     }
     if (membership == Membership.leave) {
       final invitation = getState(EventTypes.RoomMember, client.userID!);
-      if (invitation != null && invitation.unsigned?['prev_sender'] != null) {
+      if (invitation != null &&
+          invitation.unsigned?.tryGet<String>('prev_sender') != null) {
         final name = unsafeGetUserFromMemoryOrFallback(
-                invitation.unsigned?['prev_sender'] as String)
+                invitation.unsigned!.tryGet<String>('prev_sender')!)
             .calcDisplayname(i18n: i18n);
         return i18n.wasDirectChatDisplayName(name);
       }
@@ -1934,7 +1935,7 @@ class Room {
       return getState(EventTypes.RoomCreate)?.senderId == userId ? 100 : 0;
     }
     return powerLevelMap
-            .tryGetMap<String, dynamic>('users')
+            .tryGetMap<String, Object?>('users')
             ?.tryGet<int>(userId) ??
         powerLevelMap.tryGet<int>('users_default') ??
         0;
@@ -1989,7 +1990,7 @@ class Room {
     final powerLevelMap = getState(EventTypes.RoomPowerLevels)?.content;
     if (powerLevelMap == null) return 0;
     return powerLevelMap
-            .tryGetMap<String, dynamic>('events')
+            .tryGetMap<String, Object?>('events')
             ?.tryGet<int>(action) ??
         powerLevelMap.tryGet<int>('state_default') ??
         50;
@@ -2049,7 +2050,7 @@ class Room {
     final powerLevelsMap = getState(EventTypes.RoomPowerLevels)?.content;
     if (powerLevelsMap == null) return 0 <= ownPowerLevel;
     final pl = powerLevelsMap
-            .tryGetMap<String, dynamic>('events')
+            .tryGetMap<String, Object?>('events')
             ?.tryGet<int>(eventType) ??
         powerLevelsMap.tryGet<int>('events_default') ??
         0;
@@ -2061,7 +2062,7 @@ class Room {
     final userLevel = getPowerLevelByUserId(userid);
     final notificationLevel = getState(EventTypes.RoomPowerLevels)
             ?.content
-            .tryGetMap<String, dynamic>('notifications')
+            .tryGetMap<String, Object?>('notifications')
             ?.tryGet<int>(notificationType) ??
         50;
 
