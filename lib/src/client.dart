@@ -212,7 +212,7 @@ class Client extends MatrixApi {
     ]);
 
     // register all the default commands
-    registerDefaultCommands();
+    // registerDefaultCommands();
   }
 
   /// The required name for this client.

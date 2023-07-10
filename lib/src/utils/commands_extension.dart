@@ -182,20 +182,6 @@ extension CommandsClientExtension on Client {
       await args.room.invite(parts.first);
       return '';
     });
-    addCommand('myroomnick', (CommandArgs args) async {
-      final currentEventJson = args.room
-              .getState(EventTypes.RoomMember, args.room.client.userID!)
-              ?.content
-              .copy() ??
-          {};
-      currentEventJson['displayname'] = args.msg;
-      return await args.room.client.setRoomStateWithKey(
-        args.room.id,
-        EventTypes.RoomMember,
-        args.room.client.userID!,
-        currentEventJson,
-      );
-    });
     addCommand('myroomavatar', (CommandArgs args) async {
       final currentEventJson = args.room
               .getState(EventTypes.RoomMember, args.room.client.userID!)
