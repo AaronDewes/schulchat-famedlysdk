@@ -1629,6 +1629,15 @@ class Client extends MatrixApi {
     }
   }
 
+  void _removeFromRoomsWithOpenReadReceipts(Room room) {
+    final currentUser = room.getParticipants([Membership.join]).where(
+        (element) => element.id == userID);
+    if (currentUser.isEmpty && roomsWithOpenReadReceipts.contains(room.id)) {
+      roomsWithOpenReadReceipts.remove(room.id);
+      _openReadReceiptsCallback(hasToGiveReadReceipt);
+    }
+  }
+
   Future<void> updateOpenReadReceipts(String roomId) async {
     roomsWithOpenReadReceipts.remove(roomId);
     await _findOpenReadReceiptsInRoom(roomId);
@@ -2009,6 +2018,8 @@ class Client extends MatrixApi {
           await _handleRoomEvents(room, state, EventUpdateType.state,
               store: false);
         }
+
+        _removeFromRoomsWithOpenReadReceipts(room);
       }
 
       if (syncRoomUpdate is InvitedRoomUpdate) {
