@@ -263,5 +263,8 @@ abstract class EventLocalizations {
                   ?.tryGet<String>('key') ??
               body,
         ),
+    EventTypes.ReadReceipt: (event, i18n, body) => i18n.readReceiptGiven,
+    EventTypes.ReadReceiptRequired: (event, i18n, body) =>
+        i18n.readReceiptRequest,
   };
 }

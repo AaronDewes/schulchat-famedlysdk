@@ -269,4 +269,10 @@ class MatrixDefaultLocalizations extends MatrixLocalizations {
   @override
   String wasDirectChatDisplayName(String oldDisplayName) =>
       'Empty chat (was $oldDisplayName)';
+
+  @override
+  String get readReceiptRequest => 'Read receipt request';
+
+  @override
+  String get readReceiptGiven => 'Read receipt given';
 }
