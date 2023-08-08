@@ -1551,30 +1551,33 @@ class Client extends MatrixApi {
 
   Future<void> _findOpenReadReceiptsInRoom(String roomId) async {
     for (final event in readReceiptRequests[roomId]!.values) {
-      final String? parentEventId = event.content
-          .tryGetMap<String, dynamic>('m.relates_to')
-          ?.tryGet<String>('event_id');
-      // if current user has requested read receipt, he/she needn't
-      // give a read receipt for this event
-      if (parentEventId != null && event.senderId != userID) {
-        GetRelationsResponse res = await getRelations(
-            roomId, parentEventId, RelationshipTypes.readReceipt);
-        if (res.chunk.isEmpty) {
+      await _findOpenReadReceiptsForEvent(event, roomId);
+    }
+  }
+
+  Future<void> _findOpenReadReceiptsForEvent(
+      MatrixEvent event, String roomId) async {
+    final String? parentEventId = event.content
+        .tryGetMap<String, dynamic>('m.relates_to')
+        ?.tryGet<String>('event_id');
+    // if current user has requested read receipt, he/she needn't
+    // give a read receipt for this event
+    if (parentEventId != null && event.senderId != userID) {
+      final GetRelationsResponse res = await getRelations(
+          roomId, parentEventId, RelationshipTypes.readReceipt);
+      if (res.chunk.isEmpty) {
+        roomsWithOpenReadReceipts.add(roomId);
+      } else {
+        final readReceiptGiven = res.chunk
+            .where((e) =>
+                e.content
+                    .tryGetMap<String, dynamic>('m.relates_to')
+                    ?.tryGet<String>('user_id') ==
+                userID)
+            .toList()
+            .isNotEmpty;
+        if (!readReceiptGiven) {
           roomsWithOpenReadReceipts.add(roomId);
-          break;
-        } else {
-          final readReceiptGiven = res.chunk
-              .where((e) =>
-                  e.content
-                      .tryGetMap<String, dynamic>('m.relates_to')
-                      ?.tryGet<String>('user_id') ==
-                  userID)
-              .toList()
-              .isNotEmpty;
-          if (!readReceiptGiven) {
-            roomsWithOpenReadReceipts.add(roomId);
-            break;
-          }
         }
       }
     }
@@ -1585,44 +1588,63 @@ class Client extends MatrixApi {
     // ignore first call of sync when fluffychat loads (initialises)
     // react only when user sends a new message in a chat
     if (_readReceiptInfoInitialized) {
-      for (MatrixEvent event in events) {
+      for (final MatrixEvent mEvent in events) {
         // check for Debug is a HACK - if user requests read receipt in debug mode
         // the event of type ReadReceiptRequired is sent several times (??) once with eventId "FluffyChat Debug ..."
-        if (!event.eventId.contains("Debug")) {
-          if (event.type == EventTypes.ReadReceiptRequired) {
+        if (!mEvent.eventId.contains("Debug")) {
+          if (mEvent.type == EventTypes.ReadReceiptRequired) {
             bool added = false;
             if (readReceiptRequests.containsKey(room.id)) {
               // /sync can be called several times, although just
               // one event was added -> therefore check if event was
               // already handled
-              if (!readReceiptRequests[room.id]!.containsKey(event.eventId)) {
-                readReceiptRequests[room.id]!.addAll({event.eventId: event});
+              if (!readReceiptRequests[room.id]!.containsKey(mEvent.eventId)) {
+                readReceiptRequests[room.id]!.addAll({mEvent.eventId: mEvent});
                 added = true;
               }
             } else {
               readReceiptRequests.addAll({
-                room.id: {event.eventId: event}
+                room.id: {mEvent.eventId: mEvent}
               });
               added = true;
             }
 
             if (added) {
-              final String? parentEventId = event.content
+              final String? parentEventId = mEvent.content
                   .tryGetMap<String, dynamic>('m.relates_to')
                   ?.tryGet<String>('event_id');
               // if current user has requested read receipt, he/she needn't
               // give a read receipt for this event
-              if (parentEventId != null && event.senderId != userID) {
+              if (parentEventId != null && mEvent.senderId != userID) {
                 roomsWithOpenReadReceipts.add(room.id);
                 _openReadReceiptsCallback(hasToGiveReadReceipt);
               }
               // notify other classes that a new read receipt request
               // was added in class client
-              _newReadReceiptRequestCallback(room, event);
+              _newReadReceiptRequestCallback(room, mEvent);
             }
-          } else if (event.type == EventTypes.ReadReceipt) {
+          } else if (mEvent.type == EventTypes.ReadReceipt) {
+            // if a new readreceipt was given, refresh readreceipt infos
             await updateOpenReadReceipts(room.id);
             _openReadReceiptsCallback(hasToGiveReadReceipt);
+          } else {
+            // if an event with read receipt was edited, refresh read receipt infos
+            final event = Event.fromMatrixEvent(mEvent, room);
+            if (event.relationshipType == RelationshipTypes.edit &&
+                readReceiptRequests.containsKey(room.id)) {
+              if (event.relationshipEventId != null) {
+                final GetRelationsResponse res = await getRelations(
+                    room.id,
+                    event.relationshipEventId!,
+                    RelationshipTypes.readReceiptRequired);
+
+                if (res.chunk.isNotEmpty) {
+                  roomsWithOpenReadReceipts.remove(room.id);
+                  await _findOpenReadReceiptsForEvent(mEvent, room.id);
+                  _openReadReceiptsCallback(hasToGiveReadReceipt);
+                }
+              }
+            }
           }
         }
       }
