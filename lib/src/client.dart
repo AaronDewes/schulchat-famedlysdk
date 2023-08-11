@@ -3135,7 +3135,7 @@ class Client extends MatrixApi {
   Future<Map<String, dynamic>> fetchAddressbook([refresh = false]) async {
     final abookFromCache = await database?.getAddressbook();
     if (abookFromCache != null && !refresh) return abookFromCache;
-    print('refreshing!');
+    Logs().i('fetchAddressbook: Refreshing');
 
     try {
       final Map<String, dynamic> abookJson = await request(
