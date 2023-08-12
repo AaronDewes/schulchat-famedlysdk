@@ -266,5 +266,6 @@ abstract class EventLocalizations {
     EventTypes.ReadReceipt: (event, i18n, body) => i18n.readReceiptGiven,
     EventTypes.ReadReceiptRequired: (event, i18n, body) =>
         i18n.readReceiptRequest,
+    EventTypes.SchoolIdentifier: (event, i18n, body) => i18n.schoolId,
   };
 }

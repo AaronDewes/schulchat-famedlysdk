@@ -62,6 +62,8 @@ abstract class MatrixLocalizations {
 
   String get readReceiptGiven;
 
+  String get schoolId;
+
   String youInvitedBy(String senderName);
 
   String youInvitedUser(String targetName);

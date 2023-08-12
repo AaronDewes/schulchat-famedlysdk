@@ -275,4 +275,8 @@ class MatrixDefaultLocalizations extends MatrixLocalizations {
 
   @override
   String get readReceiptGiven => 'Read receipt given';
+
+  // intentially left blank
+  @override
+  String get schoolId => '';
 }
