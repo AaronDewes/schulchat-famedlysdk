@@ -75,22 +75,18 @@ class PushNotification {
 }
 
 class PushNotificationCounts {
-  final int? missedCalls;
   final int? unread;
 
   const PushNotificationCounts({
-    this.missedCalls,
     this.unread,
   });
 
   factory PushNotificationCounts.fromJson(Map<String, dynamic> json) =>
       PushNotificationCounts(
-        missedCalls: json['missed_calls'],
         unread: json['unread'],
       );
 
   Map<String, dynamic> toJson() => {
-        if (missedCalls != null) 'missed_calls': missedCalls,
         if (unread != null) 'unread': unread,
       };
 }

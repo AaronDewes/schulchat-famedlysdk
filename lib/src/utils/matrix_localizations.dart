@@ -156,14 +156,6 @@ abstract class MatrixLocalizations {
 
   String unknownEvent(String typeKey);
 
-  String startedACall(String senderName);
-
-  String endedTheCall(String senderName);
-
-  String answeredTheCall(String senderName);
-
-  String sentCallInformations(String senderName);
-
   String wasDirectChatDisplayName(String oldDisplayName);
 }
 

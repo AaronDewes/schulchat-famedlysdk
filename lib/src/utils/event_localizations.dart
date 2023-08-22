@@ -244,14 +244,6 @@ abstract class EventLocalizations {
       }
       return localizedBody;
     },
-    EventTypes.CallAnswer: (event, i18n, body) => i18n
-        .answeredTheCall(event.senderFromMemoryOrFallback.calcDisplayname()),
-    EventTypes.CallHangup: (event, i18n, body) =>
-        i18n.endedTheCall(event.senderFromMemoryOrFallback.calcDisplayname()),
-    EventTypes.CallInvite: (event, i18n, body) =>
-        i18n.startedACall(event.senderFromMemoryOrFallback.calcDisplayname()),
-    EventTypes.CallCandidates: (event, i18n, body) => i18n.sentCallInformations(
-        event.senderFromMemoryOrFallback.calcDisplayname()),
     EventTypes.Encrypted: (event, i18n, body) =>
         _localizedBodyNormalMessage(event, i18n, body),
     EventTypes.Message: (event, i18n, body) =>

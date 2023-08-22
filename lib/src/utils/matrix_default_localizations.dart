@@ -208,26 +208,6 @@ class MatrixDefaultLocalizations extends MatrixLocalizations {
   String get you => 'You';
 
   @override
-  String answeredTheCall(String senderName) {
-    return 'answeredTheCall';
-  }
-
-  @override
-  String endedTheCall(String senderName) {
-    return 'endedTheCall';
-  }
-
-  @override
-  String sentCallInformations(String senderName) {
-    return 'sentCallInformations';
-  }
-
-  @override
-  String startedACall(String senderName) {
-    return 'startedACall';
-  }
-
-  @override
   String sentReaction(String senderName, String reactionKey) {
     return '$senderName reacted with $reactionKey';
   }
