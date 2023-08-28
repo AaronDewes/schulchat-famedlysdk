@@ -743,6 +743,25 @@ class Client extends MatrixApi {
   final Map<String, ProfileInformation> _profileRoomsCache = {};
   final Map<String, ProfileInformation> _profileServerCache = {};
 
+  Future<void> _canSendTo(String userId) async {
+    // copied from lib/src/utils/matrix_id_string_extension.dart
+    final s = userId.substring(1);
+    final ix = s.indexOf(':');
+    final localPart = s.substring(0, ix);
+    final abookJson = await fetchAddressbook();
+    final canSendTo = abookJson['users'].containsKey(localPart);
+    _canSendToMap[userId] = canSendTo;
+  }
+
+  Future<bool> canSendToUser(String userId) async {
+    await _canSendTo(userId);
+    bool canSendToUser = (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
+    return canSendToUser;
+  }
+
+  Map<String, bool> get canSendTo => _canSendToMap;
+  final Map<String, bool> _canSendToMap = {};
+
   /// Get the combined profile information for this user.
   /// If [getFromRooms] is true then the profile will first be searched from the
   /// room memberships. This is unstable if the given user makes use of different displaynames
@@ -754,11 +773,15 @@ class Client extends MatrixApi {
       {bool cache = true, bool getFromRooms = true}) async {
     var profile =
         getFromRooms ? _profileRoomsCache[userId] : _profileServerCache[userId];
+    // TODO Kommunikationsmatrix
+    await _canSendTo(userId);
+    final bool canSendTo = (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
     if (cache && profile != null) {
       return Profile(
         userId: userId,
         displayName: profile.displayname,
         avatarUrl: profile.avatarUrl,
+        canSendTo: canSendTo,
       );
     }
 
@@ -773,10 +796,12 @@ class Client extends MatrixApi {
           userId: userId,
           displayName: user.displayName,
           avatarUrl: user.avatarUrl,
+          canSendTo: canSendTo,
         );
         _profileRoomsCache[userId] = ProfileInformation(
           avatarUrl: profileFromRooms.avatarUrl,
           displayname: profileFromRooms.displayName,
+          canSendTo: profileFromRooms.canSendTo,
         );
         return profileFromRooms;
       }
@@ -789,6 +814,7 @@ class Client extends MatrixApi {
       userId: userId,
       displayName: profile.displayname,
       avatarUrl: profile.avatarUrl,
+      canSendTo: profile.canSendTo,
     );
   }
 
