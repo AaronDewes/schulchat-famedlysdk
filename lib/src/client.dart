@@ -744,13 +744,17 @@ class Client extends MatrixApi {
   final Map<String, ProfileInformation> _profileServerCache = {};
 
   Future<void> _canSendTo(String userId) async {
-    // copied from lib/src/utils/matrix_id_string_extension.dart
-    final s = userId.substring(1);
-    final ix = s.indexOf(':');
-    final localPart = s.substring(0, ix);
-    final abookJson = await fetchAddressbook();
-    final canSendTo = abookJson['users'].containsKey(localPart);
-    _canSendToMap[userId] = canSendTo;
+    if (userID != userId) {
+      // copied from lib/src/utils/matrix_id_string_extension.dart
+      final s = userId.substring(1);
+      final ix = s.indexOf(':');
+      final localPart = s.substring(0, ix);
+      final abookJson = await fetchAddressbook();
+      final canSendTo = abookJson['users'].containsKey(localPart);
+      _canSendToMap[userId] = canSendTo;
+    } else {
+      _canSendToMap[userId] = false;
+    }
   }
 
   Future<bool> canSendToUser(String userId) async {
@@ -3077,7 +3081,7 @@ class Client extends MatrixApi {
       return abookJson;
     } on MatrixException catch (e) {
       Logs().i('Error fetchAddressbook: ${e.errcode} ${e.errorMessage}');
-      return {};
+      return jsonDecode('{}') as Map<String, dynamic>;
     }
   }
 
