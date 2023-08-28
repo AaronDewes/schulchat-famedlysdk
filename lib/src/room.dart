@@ -1484,6 +1484,7 @@ class Room {
           .where((entry) => entry.value.type == EventTypes.RoomMember)
           .map((entry) => entry.value.asUser)
           .where((user) => membershipFilter.contains(user.membership))
+          .where((user) => !RegExp(r'^@idm_provisioning_bot').hasMatch(user.stateKey!))
           .toList();
     }
     return <User>[];
@@ -1958,7 +1959,7 @@ class Room {
       }
       return result;
     }
-    return null;
+    return [];
   }
 
   /// Changes the join rules. You should check first if the user is able to change it.
