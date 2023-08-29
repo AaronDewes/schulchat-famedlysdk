@@ -182,10 +182,6 @@ class MatrixDefaultLocalizations extends MatrixLocalizations {
   String sentAnAudio(String senderName) => '$senderName sent an audio';
 
   @override
-  String sharedTheLocation(String senderName) =>
-      '$senderName shared the location';
-
-  @override
   String unbannedUser(String senderName, String targetName) =>
       '$senderName unbanned $targetName';
 

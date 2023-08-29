@@ -150,8 +150,6 @@ abstract class MatrixLocalizations {
 
   String sentReaction(String senderName, String reactionKey);
 
-  String sharedTheLocation(String senderName);
-
   String couldNotDecryptMessage(String errorText);
 
   String unknownEvent(String typeKey);

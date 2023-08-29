@@ -42,9 +42,6 @@ abstract class EventLocalizations {
       case MessageTypes.Video:
         return i18n
             .sentAVideo(event.senderFromMemoryOrFallback.calcDisplayname());
-      case MessageTypes.Location:
-        return i18n.sharedTheLocation(
-            event.senderFromMemoryOrFallback.calcDisplayname());
       case MessageTypes.Sticker:
         return i18n
             .sentASticker(event.senderFromMemoryOrFallback.calcDisplayname());
