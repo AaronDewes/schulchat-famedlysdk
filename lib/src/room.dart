@@ -1123,9 +1123,34 @@ class Room {
     return;
   }
 
+  // if the user is an admin and there are no others admins, user cannot leave
+  Future<bool> _canLeave() async {
+    if (ownPowerLevel >= 100) {
+      final listOfUsers = await requestParticipants([Membership.join]);
+      listOfUsers.removeWhere((u) =>
+          !{Membership.join}.contains(u.membership) || (u.id == client.userID));
+      if (listOfUsers.isEmpty) {
+        return true;
+      }
+      for (final u in listOfUsers) {
+        final level = getPowerLevelByUserId(u.id);
+        if (level >= 100) {
+          return true;
+        } else {
+        }
+      }
+      return false;
+    }
+    return true;
+  }
+
   /// Call the Matrix API to leave this room. If this room is set as a direct
   /// chat, this will be removed too.
   Future<void> leave() async {
+    final canLeave = await _canLeave();
+    if (!canLeave) {
+      return;
+    }
     try {
       await client.leaveRoom(id);
     } on MatrixException catch (exception) {
@@ -1484,7 +1509,8 @@ class Room {
           .where((entry) => entry.value.type == EventTypes.RoomMember)
           .map((entry) => entry.value.asUser)
           .where((user) => membershipFilter.contains(user.membership))
-          .where((user) => !RegExp(r'^@idm_provisioning_bot').hasMatch(user.stateKey!))
+          .where((user) =>
+              !RegExp(r'^@idm_provisioning_bot').hasMatch(user.stateKey!))
           .toList();
     }
     return <User>[];

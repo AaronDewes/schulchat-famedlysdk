@@ -759,7 +759,8 @@ class Client extends MatrixApi {
 
   Future<bool> canSendToUser(String userId) async {
     await _canSendTo(userId);
-    bool canSendToUser = (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
+    bool canSendToUser =
+        (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
     return canSendToUser;
   }
 
@@ -779,7 +780,8 @@ class Client extends MatrixApi {
         getFromRooms ? _profileRoomsCache[userId] : _profileServerCache[userId];
     // TODO Kommunikationsmatrix
     await _canSendTo(userId);
-    final bool canSendTo = (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
+    final bool canSendTo =
+        (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
     if (cache && profile != null) {
       return Profile(
         userId: userId,
