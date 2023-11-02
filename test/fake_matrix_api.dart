@@ -263,6 +263,7 @@ class FakeMatrixApi extends BaseClient {
           }
         }
         // and generate a fake sync
+        // ignore: discarded_futures
         _client!.handleSync(sdk.SyncUpdate(nextBatch: ''));
       }
       return {};

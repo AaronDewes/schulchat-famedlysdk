@@ -241,7 +241,8 @@ class KeyManager {
         !client.isUnknownSession) {
       // do e2ee recovery
       _requestedSessionIds.add(requestIdent);
-      runInRoot(() => request(
+
+      runInRoot(() async => request(
             room,
             sessionId,
             senderKey,
@@ -770,8 +771,8 @@ class KeyManager {
   Future<void>? _uploadingFuture;
 
   void startAutoUploadKeys() {
-    _uploadKeysOnSync = encryption.client.onSync.stream
-        .listen((_) => uploadInboundGroupSessions(skipIfInProgress: true));
+    _uploadKeysOnSync = encryption.client.onSync.stream.listen(
+        (_) async => uploadInboundGroupSessions(skipIfInProgress: true));
   }
 
   /// This task should be performed after sync processing but should not block
@@ -1042,6 +1043,7 @@ class KeyManager {
   StreamSubscription<SyncUpdate>? _uploadKeysOnSync;
 
   void dispose() {
+    // ignore: discarded_futures
     _uploadKeysOnSync?.cancel();
     for (final sess in _outboundGroupSessions.values) {
       sess.dispose();

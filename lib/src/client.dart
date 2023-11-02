@@ -1710,7 +1710,7 @@ class Client extends MatrixApi {
   set backgroundSync(bool enabled) {
     _backgroundSync = enabled;
     if (_backgroundSync) {
-      _sync();
+      runInRoot(() async => _sync());
     }
   }
 

@@ -4,7 +4,11 @@ linter:
   rules:
     camel_case_types: true
     avoid_print: true
-    constant_identifier_names: true
+      #constant_identifier_names: true
+      #cancel_subscriptions: true
+      #discarded_futures: true
+      #non_constant_identifier_names: false # seems to wrongly diagnose static const variables
+      #prefer_final_in_for_each: true
     prefer_final_locals: true
     prefer_final_in_for_each: true
     sort_pub_dependencies: true
