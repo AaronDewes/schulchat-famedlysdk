@@ -626,13 +626,8 @@ class Room {
     Event? inReplyTo,
     String? editEventId,
     bool parseMarkdown = true,
-    bool parseCommands = true,
     String msgtype = MessageTypes.Text,
   }) {
-    if (parseCommands) {
-      return client.parseAndRunCommand(this, message,
-          inReplyTo: inReplyTo, editEventId: editEventId, txid: txid);
-    }
     final event = <String, dynamic>{
       'msgtype': msgtype,
       'body': message,

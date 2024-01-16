@@ -87,8 +87,6 @@ class Client extends MatrixApi {
 
   bool shareKeysWithUnverifiedDevices;
 
-  // For CommandsClientExtension
-  final Map<String, FutureOr<String?> Function(CommandArgs)> commands = {};
   final Filter syncFilter;
 
   final NativeImplementations nativeImplementations;
@@ -209,9 +207,6 @@ class Client extends MatrixApi {
       EventTypes.Encrypted,
       EventTypes.Sticker,
     ]);
-
-    // register all the default commands
-    // registerDefaultCommands();
   }
 
   /// The required name for this client.
@@ -759,7 +754,7 @@ class Client extends MatrixApi {
 
   Future<bool> canSendToUser(String userId) async {
     await _canSendTo(userId);
-    bool canSendToUser =
+    final canSendToUser =
         (_canSendToMap.containsKey(userId)) ? _canSendToMap[userId]! : false;
     return canSendToUser;
   }
