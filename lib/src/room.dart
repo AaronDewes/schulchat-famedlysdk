@@ -1136,8 +1136,7 @@ class Room {
         final level = getPowerLevelByUserId(u.id);
         if (level >= 100) {
           return true;
-        } else {
-        }
+        } else {}
       }
       return false;
     }
@@ -1973,7 +1972,7 @@ class Room {
   }
 
   // TODO extend JoinRules
-  List<String>? get restrictedJoinRulesAllowedRooms {
+  List<String> get restrictedJoinRulesAllowedRooms {
     final joinRule = getState(EventTypes.RoomJoinRules)?.content['join_rule'];
     if (joinRule == 'restricted') {
       final allowedRooms = getState(EventTypes.RoomJoinRules)?.content['allow'];
@@ -2160,6 +2159,53 @@ class Room {
         'name': name,
       });
     }
+  }
+
+  // Returns the name of a scgroup
+  //
+  // As we are called inside a room, we assume there is always a `schoolId` set.
+  Future<String?> getNameOfSCGroup(scgroupId, [schoolIdentifier]) async {
+    final addressbookData = await client.fetchAddressbook();
+    schoolIdentifier = schoolIdentifier ?? schoolId;
+
+    return addressbookData[schoolIdentifier]?['scgroups']?[scgroupId]?[0];
+  }
+
+  // Returns a list of all members of a scgroup
+  Future<List<String>> getMembersOfSCGroup(scgroupId,
+      [schoolIdentifier]) async {
+    final addressbookData = await client.fetchAddressbook();
+    schoolIdentifier = schoolIdentifier ?? schoolId;
+
+    return addressbookData[schoolIdentifier]?['scgroups']?[scgroupId]?[1] ?? [];
+  }
+
+  Future<List<String>> findMembersToBeRemoved(scgroupId) async {
+    final membersToRemove = await getMembersOfSCGroup(scgroupId);
+
+    for (final alias in restrictedJoinRulesAllowedRooms) {
+      final group = alias.split(':')[0].split('--')[1];
+      if (group != scgroupId) {
+        final members = await getMembersOfSCGroup(group);
+        for (final m in members) {
+          membersToRemove.remove(m);
+        }
+      }
+    }
+
+    final fullMxids =
+        membersToRemove.map((m) => '@$m:${client.userID!.domain}');
+
+    // ensure user is actually in the room before trying to remove them
+    final listOfUsers =
+        await requestParticipants([Membership.join, Membership.invite]);
+    listOfUsers.removeWhere((u) =>
+        // ignore our own user
+        (u.id == client.userID) ||
+        // only consider the removal candidates
+        (!fullMxids.contains(u.id)));
+
+    return listOfUsers.map((u) => u.id).toList();
   }
 
   /// Generates a matrix.to link with appropriate routing info to share the room
