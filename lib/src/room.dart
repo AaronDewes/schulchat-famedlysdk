@@ -2013,6 +2013,18 @@ class Room {
     return;
   }
 
+  // Adds newGroups to the restricted join_rule.
+  // In case a restricted join_rule already exists, adds newGroups to the existing groups by overriding the join_rule.
+  // In case no restricted join_rule exists, an initial join_rule is created.
+  Future<void> addToRestrictedJoinRules(newGroups) async {
+    final oldGroups = restrictedJoinRulesAllowedRooms.toSet();
+    for (final group in newGroups) {
+      oldGroups.add(group);
+    }
+
+    await setRestrictedJoinRules(oldGroups);
+  }
+
   // Remove a given group from the list of join_rule
   Future<void> removeGroupFromJoinRules(removeGroup) async {
     final groupRegex =
