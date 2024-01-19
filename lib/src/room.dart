@@ -2013,6 +2013,17 @@ class Room {
     return;
   }
 
+  // Remove a given group from the list of join_rule
+  Future<void> removeGroupFromJoinRules(removeGroup) async {
+    final groupRegex =
+        RegExp('^#$schoolId--$removeGroup:${client.userID!.domain}');
+    final newRooms = restrictedJoinRulesAllowedRooms;
+
+    newRooms.removeWhere((group) => groupRegex.hasMatch(group));
+
+    await setRestrictedJoinRules(newRooms);
+  }
+
   /// Whether the user has the permission to change the join rules.
   bool get canChangeJoinRules => canChangeStateEvent(EventTypes.RoomJoinRules);
 
