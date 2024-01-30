@@ -1485,6 +1485,10 @@ class Room {
     return timeline;
   }
 
+  // indicates if bot is in the room
+  // if yes, avoid off-by-one later
+  bool _idmbotInRoom = false;
+
   /// Returns all participants for this room. With lazy loading this
   /// list may not be complete. Use [requestParticipants] in this
   /// case.
@@ -1497,14 +1501,20 @@ class Room {
         Membership.invite,
         Membership.knock,
       ]]) {
-    final members = states[EventTypes.RoomMember];
-    if (members != null) {
-      return members.entries
+    final tmpMembers = states[EventTypes.RoomMember];
+    if (tmpMembers != null) {
+      final members = tmpMembers.entries
           .where((entry) => entry.value.type == EventTypes.RoomMember)
           .map((entry) => entry.value.asUser)
-          .where((user) => membershipFilter.contains(user.membership))
-          .where((user) =>
-              !RegExp(r'^@idm_provisioning_bot').hasMatch(user.stateKey!))
+          .where((user) => membershipFilter.contains(user.membership));
+
+      // check if idmbot did any room membership changes
+      if (members.any((user) => 'idm_provisioning_bot' == user.id.localpart)) {
+        _idmbotInRoom = true;
+      }
+
+      return members
+          .where((user) => 'idm_provisioning_bot' != user.id.localpart)
           .toList();
     }
     return <User>[];
@@ -1527,6 +1537,9 @@ class Room {
       // we aren't fully loaded, maybe the users are in the database
       final users = await client.database?.getUsers(this) ?? [];
       for (final user in users) {
+        // the idmbot is removed from the UI
+        if ('idm_provisioning_bot' == user.id.localpart) _idmbotInRoom = true;
+
         setState(user);
       }
     }
@@ -1543,10 +1556,15 @@ class Room {
             .toList() ??
         [];
     for (final user in users) {
+      // the idmbot is removed from the UI
+      if ('idm_provisioning_bot' == user.id.localpart) _idmbotInRoom = true;
+
       setState(user); // at *least* cache this in-memory
     }
     _requestedParticipants = true;
-    users.removeWhere((u) => !membershipFilter.contains(u.membership));
+    users.removeWhere((u) =>
+        !membershipFilter.contains(u.membership) ||
+        'idm_provisioning_bot' == u.id.localpart);
     return users;
   }
 
@@ -1556,7 +1574,9 @@ class Room {
     knownParticipants.removeWhere(
         (u) => ![Membership.join, Membership.invite].contains(u.membership));
     return knownParticipants.length ==
-        (summary.mJoinedMemberCount ?? 0) + (summary.mInvitedMemberCount ?? 0);
+        (summary.mJoinedMemberCount ?? 0) +
+            (summary.mInvitedMemberCount ?? 0) -
+            (_idmbotInRoom ? 1 : 0);
   }
 
   @Deprecated(
