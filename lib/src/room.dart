@@ -1121,18 +1121,22 @@ class Room {
   // if the user is an admin and there are no others admins, user cannot leave
   Future<bool> _canLeave() async {
     if (ownPowerLevel >= 100) {
-      final listOfUsers = await requestParticipants([Membership.join]);
+      final listOfUsers =
+          await requestParticipants([Membership.join, Membership.invite]);
       listOfUsers.removeWhere((u) =>
-          !{Membership.join}.contains(u.membership) || (u.id == client.userID));
+          !{Membership.join, Membership.invite}.contains(u.membership) ||
+          (u.id == client.userID));
+
+      // if there is no one else in the room
       if (listOfUsers.isEmpty) {
         return true;
       }
-      for (final u in listOfUsers) {
-        final level = getPowerLevelByUserId(u.id);
-        if (level >= 100) {
-          return true;
-        } else {}
+
+      // if there is another moderator in the room
+      if (listOfUsers.any((u) => getPowerLevelByUserId(u.id) >= 100)) {
+        return true;
       }
+
       return false;
     }
     return true;
