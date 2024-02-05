@@ -2050,7 +2050,7 @@ class Room {
   }
 
   // Remove a given group from the list of join_rule
-  Future<void> removeGroupFromJoinRules(removeGroup) async {
+  Future<void> removeGroupFromJoinRules(String removeGroup) async {
     final groupRegex =
         RegExp('^#$schoolId--$removeGroup:${client.userID!.domain}');
     final newRooms = restrictedJoinRulesAllowedRooms;
@@ -2222,7 +2222,48 @@ class Room {
     return addressbookData[schoolIdentifier]?['scgroups']?[scgroupId]?[1] ?? [];
   }
 
-  Future<List<String>> findMembersToBeRemoved(scgroupId) async {
+  Future<List<String>> getMemberNamesOfSCGroup(scgroupId,
+      [schoolIdentifier]) async {
+    final addressbookData = await client.fetchAddressbook();
+    schoolIdentifier = schoolIdentifier ?? schoolId;
+
+    final memeberOfSCGroup =
+        addressbookData[schoolIdentifier]?['scgroups']?[scgroupId]?[1] ?? [];
+    final memberNames = <String>[];
+    memeberOfSCGroup.forEach((groupMemberId) {
+      addressbookData['users']?.forEach((userId, userData) {
+        if (userId == groupMemberId) {
+          memberNames.add(userData[0]);
+        }
+      });
+    });
+
+    return memberNames;
+  }
+
+  Future<void> removeGroupFromRoom(String scgroupId) async {
+    if (ownPowerLevel >= 100) {
+      try {
+        if (canChangeJoinRules) {
+          await removeGroupFromJoinRules(scgroupId);
+          final List<String> listOfUsersToBeRemoved =
+              await findMembersToBeRemoved(scgroupId);
+
+          for (final String userId in listOfUsersToBeRemoved) {
+            try {
+              await kick(userId);
+            } catch (error) {
+              Logs().w('Error when kicking the user $userId: $error');
+            }
+          }
+        }
+      } catch (error) {
+        Logs().w('Error when removing the group: $error');
+      }
+    }
+  }
+
+  Future<List<String>> findMembersToBeRemoved(String scgroupId) async {
     final membersToRemove = await getMembersOfSCGroup(scgroupId);
 
     for (final alias in restrictedJoinRulesAllowedRooms) {
