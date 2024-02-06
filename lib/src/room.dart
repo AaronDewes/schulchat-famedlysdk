@@ -1119,7 +1119,7 @@ class Room {
   }
 
   // if the user is an admin and there are no others admins, user cannot leave
-  Future<bool> _canLeave() async {
+  Future<bool> canLeave() async {
     if (ownPowerLevel >= 100) {
       final listOfUsers =
           await requestParticipants([Membership.join, Membership.invite]);
@@ -1145,8 +1145,8 @@ class Room {
   /// Call the Matrix API to leave this room. If this room is set as a direct
   /// chat, this will be removed too.
   Future<void> leave() async {
-    final canLeave = await _canLeave();
-    if (!canLeave) {
+    final canLeaveRoom = await canLeave();
+    if (!canLeaveRoom) {
       return;
     }
     try {
@@ -1168,6 +1168,63 @@ class Room {
       rethrow;
     }
     return;
+  }
+
+  // iterate over all participants and remove them from room
+  Future<void> kickEveryone() async {
+    try {
+      final List<User> participants = await requestParticipants(
+          [Membership.join, Membership.invite]); //returns the invited user!
+
+      for (final User participant in participants) {
+        // iterate through each user and kick them from the room
+        if (participant.id != client.userID!) {
+          await kick(participant.id);
+        }
+      }
+    } catch (e) {
+      Logs().w('Could not remove user from room $e');
+    }
+  }
+
+  /// delete the room.
+  Future<void> deleteRoom() async {
+    try {
+      if (ownPowerLevel >= 100 && canKick) {
+        // remove all scgroups from room
+        await removeAllSCGroups();
+
+        int counter = 0;
+        // Try 10 times to remove all users
+        // Probably this works anyways, so log a message for future refactoring
+        while (counter <= 10) {
+          await kickEveryone();
+          final List<User> newParticipants =
+              await requestParticipants([Membership.join, Membership.invite]);
+          if (newParticipants.length == 1 &&
+              newParticipants[0].id == client.userID!) {
+            await leave();
+          }
+          counter++;
+          Logs().d('Retrying deleteRoom loop.');
+        }
+      }
+    } on MatrixException catch (exception) {
+      if ([MatrixError.M_NOT_FOUND, MatrixError.M_UNKNOWN]
+          .contains(exception.error)) {
+        await _handleFakeSync(
+          SyncUpdate(
+            nextBatch: '',
+            rooms: RoomsUpdate(
+              leave: {
+                id: LeftRoomUpdate(),
+              },
+            ),
+          ),
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Call the Matrix API to forget this room if you already left it.
@@ -2033,6 +2090,16 @@ class Room {
       EventTypes.RoomJoinRules,
       '',
       {'join_rule': 'restricted', 'allow': allow},
+    );
+    return;
+  }
+
+  Future<void> removeAllSCGroups() async {
+    await client.setRoomStateWithKey(
+      id,
+      EventTypes.RoomJoinRules,
+      '',
+      {'join_rule': 'restricted', 'allow': []},
     );
     return;
   }
