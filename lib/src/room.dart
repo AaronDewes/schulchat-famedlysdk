@@ -2277,11 +2277,17 @@ class Room {
     final addressbookData = await client.fetchAddressbook();
     schoolIdentifier = schoolIdentifier ?? schoolId;
 
-    return addressbookData[schoolIdentifier]?['scgroups']?[scgroupId]?[0];
+    final groupName =
+        addressbookData[schoolIdentifier]?['scgroups']?[scgroupId]?[0];
+    if (groupName != null) {
+      return groupName as String;
+    } else {
+      return groupName;
+    }
   }
 
   // Returns a list of all members of a scgroup
-  Future<List<String>> getMembersOfSCGroup(scgroupId,
+  Future<List<dynamic>> getMembersOfSCGroup(scgroupId,
       [schoolIdentifier]) async {
     final addressbookData = await client.fetchAddressbook();
     schoolIdentifier = schoolIdentifier ?? schoolId;
