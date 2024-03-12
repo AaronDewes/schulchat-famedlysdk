@@ -64,6 +64,12 @@ abstract class MatrixLocalizations {
 
   String get schoolId;
 
+  String get pollStart;
+
+  String get pollResponse;
+
+  String get pollEnd;
+
   String youInvitedBy(String senderName);
 
   String youInvitedUser(String targetName);

@@ -684,6 +684,82 @@ class Room {
     return sendEvent(event, type: EventTypes.ReadReceiptRequired, txid: txid);
   }
 
+  Future<String?> sendNewPoll(String question, List<String> answers,
+      bool isLivePoll, int maxAnswers, bool allowFreeText, bool showNames,
+      {String? txid}) {
+    final answersList = [];
+    for (var i = 0; i < answers.length; i++) {
+      answersList.add({
+        'm.id': i.toString(),
+        'm.text': [
+          {'body': answers[i]}
+        ]
+      });
+    }
+
+    final event = <String, dynamic>{
+      'm.text': [
+        {
+          'mimetype': 'text/plain',
+          'body': question,
+        }
+      ],
+      'm.poll': {
+        'kind':
+            (isLivePoll) ? PollOptions.IsLivePoll : PollOptions.IsNotLivePoll,
+        'free_text': (allowFreeText)
+            ? PollOptions.WithFreeText
+            : PollOptions.WithoutFreeText,
+        'show_names':
+            (showNames) ? PollOptions.WithNames : PollOptions.WithoutNames,
+        'max_selections': maxAnswers,
+        'question': {
+          'm.text': [
+            {'body': question}
+          ]
+        },
+        'answers': answersList,
+      }
+    };
+
+    return sendEvent(event, type: EventTypes.PollStart, txid: txid);
+  }
+
+  Future<String?> sendPollResponse(String eventId, String responseId,
+      {String? txid}) {
+    final event = <String, dynamic>{
+      'm.relates_to': {
+        'rel_type': RelationshipTypes.pollResponse,
+        'event_id': eventId,
+      },
+      'm.selections': [responseId],
+    };
+
+    return sendEvent(event, type: EventTypes.PollResponse, txid: txid);
+  }
+
+  Future<String?> closePoll(String eventId, Map<String, int> results,
+      {String? txid}) {
+    final topAnswer = (results.isNotEmpty) ? results.entries.first : "";
+
+    final event = <String, dynamic>{
+      'm.relates_to': {
+        'rel_type': RelationshipTypes.pollEnd,
+        'event_id': eventId,
+      },
+      'm.text': [
+        {
+          // Simple text is used as a fallback for text-only clients which don't understand polls. Specific formatting is
+          // not specified, however something like the following is likely best.
+          'body': 'The poll has closed. Top answer: $topAnswer'
+        }
+      ],
+      'm.poll.results': results
+    };
+
+    return sendEvent(event, type: EventTypes.PollEnd, txid: txid);
+  }
+
   final Map<String, MatrixFile> sendingFilePlaceholders = {};
   final Map<String, MatrixImageFile> sendingFileThumbnails = {};
 
@@ -1883,6 +1959,8 @@ class Room {
       (getState(EventTypes.RoomPowerLevels)?.content.tryGet<int>('redact') ??
           50) <=
       ownPowerLevel;
+
+  bool get canOpenPoll => ownPowerLevel >= 100;
 
   ///  	The default level required to send state events. Can be overridden by the events key.
   bool get canSendDefaultStates {

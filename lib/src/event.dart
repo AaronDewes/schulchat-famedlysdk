@@ -36,6 +36,8 @@ abstract class RelationshipTypes {
   static const String readReceipt = 'edu.matrix.klassenfunk.read_receipt';
   static const String readReceiptRequired =
       'edu.matrix.klassenfunk.read_receipt_required';
+  static const String pollResponse = 'edu.matrix.klassenfunk.pollResponse';
+  static const String pollEnd = 'edu.matrix.klassenfunk.pollEnd';
 }
 
 /// All data exchanged over Matrix is expressed as an "event". Typically each client action (e.g. sending a message) correlates with exactly one event.

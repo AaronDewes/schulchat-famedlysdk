@@ -255,4 +255,13 @@ class MatrixDefaultLocalizations extends MatrixLocalizations {
   // intentially left blank
   @override
   String get schoolId => '';
+
+  @override
+  String get pollStart => 'New poll';
+
+  @override
+  String get pollResponse => 'New poll answer';
+
+  @override
+  String get pollEnd => 'Poll closed';
 }

@@ -256,5 +256,8 @@ abstract class EventLocalizations {
     EventTypes.ReadReceiptRequired: (event, i18n, body) =>
         i18n.readReceiptRequest,
     EventTypes.SchoolIdentifier: (event, i18n, body) => i18n.schoolId,
+    EventTypes.PollStart: (event, i18n, body) => i18n.pollStart,
+    EventTypes.PollResponse: (event, i18n, body) => i18n.pollResponse,
+    EventTypes.PollEnd: (event, i18n, body) => i18n.pollEnd,
   };
 }
