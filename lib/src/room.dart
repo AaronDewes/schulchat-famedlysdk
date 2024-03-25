@@ -1745,6 +1745,9 @@ class Room {
     bool ignoreErrors = false,
     bool requestProfile = true,
   }) async {
+    // Ignore the idm bot user
+    if (mxID.startsWith('@idm_provisioning_bot:')) return null;
+
     // Checks if the user is really missing
     final stateUser = getState(EventTypes.RoomMember, mxID);
     if (stateUser != null) {
