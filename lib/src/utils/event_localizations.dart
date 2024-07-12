@@ -41,7 +41,7 @@ abstract class EventLocalizations {
             event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n));
       case MessageTypes.Video:
         return i18n.sentAVideo(
-        event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n));
+            event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n));
       case MessageTypes.Sticker:
         return i18n.sentASticker(
             event.senderFromMemoryOrFallback.calcDisplayname(i18n: i18n));
