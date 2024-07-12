@@ -620,14 +620,24 @@ class Room {
 
   /// Sends a normal text message to this room. Returns the event ID generated
   /// by the server for this message.
-  Future<String?> sendTextEvent(
-    String message, {
-    String? txid,
-    Event? inReplyTo,
-    String? editEventId,
-    bool parseMarkdown = true,
-    String msgtype = MessageTypes.Text,
-  }) {
+  Future<String?> sendTextEvent(String message,
+      {String? txid,
+      Event? inReplyTo,
+      String? editEventId,
+      bool parseMarkdown = true,
+      bool parseCommands = true,
+      String msgtype = MessageTypes.Text,
+      String? threadRootEventId,
+      String? threadLastEventId}) {
+    /// schulchat-specific
+    /// if (parseCommands) {
+    ///  return client.parseAndRunCommand(this, message,
+    ///      inReplyTo: inReplyTo,
+    ///      editEventId: editEventId,
+    ///      txid: txid,
+    ///      threadRootEventId: threadRootEventId,
+    ///      threadLastEventId: threadLastEventId);
+    ///}
     final event = <String, dynamic>{
       'msgtype': msgtype,
       'body': message,
@@ -645,7 +655,11 @@ class Room {
       }
     }
     return sendEvent(event,
-        txid: txid, inReplyTo: inReplyTo, editEventId: editEventId);
+        txid: txid,
+        inReplyTo: inReplyTo,
+        editEventId: editEventId,
+        threadRootEventId: threadRootEventId,
+        threadLastEventId: threadLastEventId);
   }
 
   /// Sends a reaction to an event with an [eventId] and the content [key] into a room.
@@ -782,6 +796,8 @@ class Room {
     int? shrinkImageMaxDimension,
     MatrixImageFile? thumbnail,
     Map<String, dynamic>? extraContent,
+    String? threadRootEventId,
+    String? threadLastEventId,
   }) async {
     txid ??= client.generateUniqueTransactionId();
     sendingFilePlaceholders[txid] = file;
@@ -975,6 +991,8 @@ class Room {
       txid: txid,
       inReplyTo: inReplyTo,
       editEventId: editEventId,
+      threadRootEventId: threadRootEventId,
+      threadLastEventId: threadLastEventId,
     );
     sendingFilePlaceholders.remove(txid);
     sendingFileThumbnails.remove(txid);
@@ -1052,6 +1070,8 @@ class Room {
     String? txid,
     Event? inReplyTo,
     String? editEventId,
+    String? threadRootEventId,
+    String? threadLastEventId,
   }) async {
     // Create new transaction id
     final String messageID;
@@ -1090,6 +1110,25 @@ class Room {
         },
       };
     }
+
+    if (threadRootEventId != null) {
+      content['m.relates_to'] = {
+        'event_id': threadRootEventId,
+        'rel_type': RelationshipTypes.thread,
+        'is_falling_back': inReplyTo == null,
+        if (inReplyTo != null) ...{
+          'm.in_reply_to': {
+            'event_id': inReplyTo.eventId,
+          },
+        } else ...{
+          if (threadLastEventId != null)
+            'm.in_reply_to': {
+              'event_id': threadLastEventId,
+            },
+        }
+      };
+    }
+
     if (editEventId != null) {
       final newContent = content.copy();
       content['m.new_content'] = newContent;
@@ -1480,7 +1519,7 @@ class Room {
     }
     await client.setReadMarker(
       id,
-      eventId,
+      mFullyRead: eventId,
       mRead: mRead,
     );
     return;
@@ -1526,7 +1565,6 @@ class Room {
       id,
       ReceiptType.mRead,
       eventId,
-      {},
     );
     return;
   }
