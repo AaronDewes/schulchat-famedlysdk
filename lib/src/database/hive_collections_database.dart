@@ -276,8 +276,8 @@ class HiveCollectionsDatabase extends DatabaseApi {
         await _eventsBox.clear();
         await _seenDeviceIdsBox.clear();
         await _seenDeviceKeysBox.clear();
-        await _requireReadReceiptBox.clear(),
-        await _addressbookBox.clear(),
+        await _requireReadReceiptBox.clear();
+        await _addressbookBox.clear();
         await _collection.deleteFromDisk();
       });
 
