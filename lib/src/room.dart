@@ -341,11 +341,13 @@ class Room {
       }
     }
 
-    return client.directChats.entries
+    final mxId = client.directChats.entries
         .firstWhereOrNull((MapEntry<String, dynamic> e) {
       final roomIds = e.value;
       return roomIds is List<dynamic> && roomIds.contains(id);
     })?.key;
+    if (mxId?.isValidMatrixId == true) return mxId;
+    return null;
   }
 
   /// Wheither this is a direct chat or not
@@ -1782,7 +1784,7 @@ class Room {
     if (user != null) {
       return user.asUser;
     } else {
-      requestUser(mxID, ignoreErrors: true);
+      if (mxID.isValidMatrixId) requestUser(mxID, ignoreErrors: true);
       return User(mxID, room: this);
     }
   }
@@ -1799,6 +1801,8 @@ class Room {
   }) async {
     // Ignore the idm bot user
     if (mxID.startsWith('@idm_provisioning_bot:')) return null;
+
+    assert(mxID.isValidMatrixId);
 
     // Checks if the user is really missing
     final stateUser = getState(EventTypes.RoomMember, mxID);
