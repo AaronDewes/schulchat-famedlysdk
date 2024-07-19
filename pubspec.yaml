@@ -26,7 +26,7 @@ dependencies:
   matrix_api_lite:
     git:
       url: git@git.fairkom.net:clients/rlp/client/matrix_api_lite
-      ref: main
+      ref: 8e19d909c6d76390276a0f076a0b72d03b14e1f5
   mime: ^1.0.0
   olm: ^2.0.2
   random_string: ^2.3.1
