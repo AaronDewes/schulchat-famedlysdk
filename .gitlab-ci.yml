@@ -1,5 +1,5 @@
 variables:
-  FLUTTER_VERSION: 3.7.7
+  FLUTTER_VERSION: 3.10.6
 
 # update deps and format files
 .flutter_deps_and_format:
@@ -18,8 +18,8 @@ lint:
   extends:
     - .flutter_deps_and_format
   script:
-    - flutter pub run import_sorter:main --no-comments --exit-if-changed
-    - flutter format lib/ test/ --set-exit-if-changed
+    - dart pub run import_sorter:main --no-comments --exit-if-changed
+    - dart format lib/ test/ --set-exit-if-changed
 
 coverage:
   tags: [docker, rlp]
@@ -46,63 +46,40 @@ coverage:
         path: coverage.xml
       junit: TEST-report.xml
 
-#coverage_without_olm:
-#  stage: test
-#  image: dart
-#  dependencies: []
-#  variables:
-#    NO_OLM: 1
-#  before_script:
-#    - apt-get update && apt-get install --no-install-recommends --no-install-suggests -y curl lcov python3 python3-distutils
-#    - curl -o /bin/lcov_cobertura.py https://raw.githubusercontent.com/eriwen/lcov-to-cobertura-xml/master/lcov_cobertura/lcov_cobertura.py && sed 's/env python/env python3/' -i /bin/lcov_cobertura.py && chmod +x /bin/lcov_cobertura.py
-#  script:
-#    - dart pub get
-#    - ./scripts/test.sh
-#  #coverage: /^\s*lines\.*:\s*\d+.\d+\%/ <- broken see https://github.com/dart-lang/test/issues/1698
-#  artifacts:
-#    when: always
-#    paths:
-#      #- coverage/
-#      #- coverage.xml
-#      - TEST-report.xml
-#    reports:
-#      #coverage_report:
-#      #  coverage_format: cobertura
-#      #  path: coverage.xml
-#      junit: TEST-report.xml
-
-e2ee_test:
+e2ee_test_synapse:
   tags: [docker, rlp]
-    #  services:
-    #    - docker:dind
   parallel:
     matrix:
       - HOMESERVER:
-          - dendrite
+          - synapse
   script:
-    - docker stop dendrite || true
+    - docker stop synapse || true
     - docker stop dockere2e || true
     - docker stop dummy || true
-    - docker rm dendrite || true #not sure if the job deletes the container if the job fails
+    - docker rm synapse || true #not sure if the job deletes the container if the job fails
     - docker rm dockere2e || true
     - docker rm dummy || true
-    - docker volume rm dendrite || true
+    - docker volume rm synapse || true
     - docker build -f docker/Dockerfile.e2e -t docker-e2e --build-arg CI_JOB_TOKEN=$CI_JOB_TOKEN --build-arg CI_COMMIT_SHA=$CI_COMMIT_SHA .
-    - docker volume create dendrite
-    - docker run --rm --entrypoint="" --volume=dendrite:/mnt:rw matrixdotorg/dendrite-monolith:latest /usr/bin/generate-keys -private-key /mnt/matrix_key.pem -tls-cert /mnt/server.crt -tls-key /mnt/server.key
-    - docker run --rm -d --volume=dendrite:/mnt --name dummy debian:bullseye-slim sh -c 'while ! test -e /mnt/dendrite.yaml;do sleep 2;done' #something's broken with docker, maybe docker:dind helps, but I'm unable to access the volume directory from the upper most container. So let's start a dummy container only for the purpose of copying the file...
-    - docker cp test_driver/dendrite/data/dendrite.yaml dummy:/mnt
-    - docker run -d --volume=dendrite:/etc/dendrite:rw --name dendrite -p 80:8008 matrixdotorg/dendrite-monolith:latest -really-enable-open-registration
+    - docker volume create synapse
+     #something's broken, maybe docker:dind helps, but I'm unable to access the volume directory from the upper most container. So let's start a dummy container only for the purpose of copying the file...
+     # permissions/users: https://github.com/element-hq/synapse/issues/16824
+    - docker run --rm -d --volume=synapse:/mnt --name dummy debian:bullseye-slim sh -c 'chmod 0777 /mnt; while ! test -e /mnt/homeserver.yaml;do sleep 2;done' 
+    - docker cp test_driver/synapse/data/localhost.log.config dummy:/mnt
+    - docker cp test_driver/synapse/data/homeserver.yaml dummy:/mnt
+    - docker run -d --volume=synapse:/data:rw --name synapse -p 80:8008 matrixdotorg/synapse:v1.98.0
     - docker run -d --name dockere2e -t docker-e2e
-    - while [ -z $DENDRITE_IP ];do export DENDRITE_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dendrite);sleep 2;done
-    - export DENDRITE_IP=$DENDRITE_IP:8008
-    - echo $DENDRITE_IP
-    - sed -i "s/notknownyet/$DENDRITE_IP/g" docker/e2e.entrypoint
+    - while [ -z $SYNAPSE_IP ];do export SYNAPSE_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' synapse);sleep 2;done
+    #- export SYNAPSE_IP=$SYNAPSE_IP:8008
+    - export SYNAPSE_IP=$SYNAPSE_IP:80
+    - echo $SYNAPSE_IP
+    - sed -i "s/notknownyet/$SYNAPSE_IP/g" docker/e2e.entrypoint
     - docker cp docker/e2e.entrypoint dockere2e:famedlysdk/entrypoint.sh
     - docker exec -i dockere2e ./entrypoint.sh
-    - docker stop dendrite
+    - docker stop synapse
     - docker stop dockere2e
-    - docker rm dendrite
-    - docker rm dockere2e
-    - docker volume rm dendrite
+    - docker rm synapse || true
+    - docker rm dockere2e || true
+    - docker rm dummy || true
+    - docker volume rm synapse || true
   timeout: 10m

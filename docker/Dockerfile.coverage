@@ -3,7 +3,7 @@ FROM debian:bullseye-slim
 ARG CI_COMMIT_SHA
 ARG CI_JOB_TOKEN
 
-ENV FLUTTER_VERSION=3.3.8
+ENV FLUTTER_VERSION=3.10.6
 
 #PIPESTATUS needs bash
 SHELL ["/bin/bash", "-c"]
