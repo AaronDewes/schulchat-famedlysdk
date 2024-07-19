@@ -401,8 +401,13 @@ void main() => group('Integration tests', () {
           Logs().i(
               "++++ (Bob) Received decrypted message: '${inviteRoom.lastEvent!.body}' ++++");
 
-          await room.leave();
-          await room.forget();
+          final canLeave = await room.canLeave();
+          if (canLeave) {
+            await room.leave();
+            await room.forget();
+          } else {
+            Logs().i("Could not leave room");
+          }
           await inviteRoom.leave();
           await inviteRoom.forget();
           await Future.delayed(Duration(seconds: 1));
