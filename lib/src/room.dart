@@ -1280,6 +1280,7 @@ class Room {
           if (newParticipants.length == 1 &&
               newParticipants[0].id == client.userID!) {
             await leave();
+            // TODO forget room
           }
           counter++;
           Logs().d('Retrying deleteRoom loop.');

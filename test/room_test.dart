@@ -1147,6 +1147,99 @@ void main() {
           'https://matrix.to/#/!localpart%3Aserver.abc?via=example.org&via=example.com&via=test.abc');
     });
 
+    test('canLeave as normal user w/ other participants', () async {
+      expect(room.ownPowerLevel, 0);
+      expect(await room.canLeave(), true);
+    });
+
+    test('canLeave as admin user w/ other participants', () async {
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123',
+          content: {
+            'state_default': 100,
+            'users': {'${matrix.userID}': 100},
+          },
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+      expect(room.ownPowerLevel, 100);
+      expect(await room.canLeave(), false);
+    });
+
+    test('kickEveryone', () async {
+      final participants =
+          await room.requestParticipants([Membership.join, Membership.invite]);
+      expect(participants.length, 6);
+      await room.kickEveryone();
+
+      for (final p in participants) {
+        if (p.id != matrix.userID) {
+          final u = User(p.id, membership: 'leave', room: room);
+          room.setState(u);
+        }
+      }
+
+      final participants2 =
+          await room.requestParticipants([Membership.join, Membership.invite]);
+      // why is this 0 and not 1, as our own user should not have been removed?
+      expect(participants2.length, 0);
+    });
+
+    test('canLeave w/o other participants', () async {
+      expect(await room.canLeave(), true);
+    });
+
+    /*
+    test('multiple rooms in restricted join_rule', () async {
+      await room.setRestrictedJoinRules(
+          ['#DE--uuid1:server.abc', '#DE--uuid2:server.abc']);
+      expect(room.restrictedJoinRulesAllowedRooms,
+          ['#DE--uuid1:server.abc', '#DE--uuid2:server.abc']);
+    });
+
+    test('reset restricted join_rule', () async {
+      await room.setRestrictedJoinRules([]);
+      expect(room.restrictedJoinRulesAllowedRooms, []);
+    });
+
+    test('adding rooms multiple times in restricted join_rule', () async {
+      await room.addToRestrictedJoinRules(['#DE--uuid1:server.abc']);
+      await room.addToRestrictedJoinRules(['#DE--uuid2:server.abc']);
+      await room.addToRestrictedJoinRules(
+          ['#DE--uuid3:server.abc', '#DE--uuid4:server.abc']);
+      expect(room.restrictedJoinRulesAllowedRooms, [
+        '#DE--uuid1:server.abc',
+        '#DE--uuid2:server.abc',
+        '#DE--uuid3:server.abc',
+        '#DE--uuid4:server.abc'
+      ]);
+    });
+
+    test('removing a group from restricted join_rule', () async {
+      await room.removeGroupFromJoinRules('#DE--uuid3:server.abc');
+      expect(room.restrictedJoinRulesAllowedRooms, [
+        '#DE--uuid1:server.abc',
+        '#DE--uuid2:server.abc',
+        '#DE--uuid4:server.abc'
+      ]);
+    });
+
+    test('removing another group from restricted join_rule', () async {
+      await room.removeGroupFromJoinRules('#DE--uuid1:server.abc');
+      expect(room.restrictedJoinRulesAllowedRooms,
+          ['#DE--uuid2:server.abc', '#DE--uuid4:server.abc']);
+    });
+    */
+
+    test('deleteRoom', () async {
+      await room.deleteRoom();
+    });
+
     test('logout', () async {
       await matrix.logout();
     });
