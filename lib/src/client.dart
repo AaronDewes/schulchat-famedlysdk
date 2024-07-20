@@ -745,7 +745,7 @@ class Client extends MatrixApi {
       final ix = s.indexOf(':');
       final localPart = s.substring(0, ix);
       final abookJson = await fetchAddressbook();
-      final canSendTo = abookJson['users'].containsKey(localPart);
+      final canSendTo = abookJson['users']?.containsKey(localPart) ?? false;
       _canSendToMap[userId] = canSendTo;
     } else {
       _canSendToMap[userId] = false;

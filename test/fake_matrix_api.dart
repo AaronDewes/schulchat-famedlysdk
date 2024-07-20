@@ -1998,6 +1998,10 @@ class FakeMatrixApi extends BaseClient {
                 ],
                 'next_batch': 'd1',
               },
+      '/client/unstable/fairkom.fairmessenger.addressbook/addressbook':
+          (var req) => {
+                'users': {'alice': [], 'getme': []},
+              },
     },
     'POST': {
       '/client/v3/delete_devices': (var req) => {},
@@ -2538,6 +2542,10 @@ class FakeMatrixApi extends BaseClient {
       '/client/v3/rooms/${Uri.encodeComponent("!localpart:server.abc")}/state/${Uri.encodeComponent("org.matrix.msc3401.call")}/${Uri.encodeComponent("1675856324414gzczMtfzTk0DKgEw")}':
           (var req) => {
                 'event_id': 'groupCall',
+              },
+      '/client/unstable/fairkom.fairmessenger.addressbook/addressbook':
+          (var req) => {
+                'users': {'alice': [], 'getme': []},
               },
     },
     'DELETE': {

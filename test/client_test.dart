@@ -545,11 +545,13 @@ void main() {
           getFromRooms: false);
       expect(profile.avatarUrl.toString(), 'mxc://test');
       expect(profile.displayName, 'You got me');
+      expect(profile.canSendTo, false);
       final aliceProfile =
           await matrix.getProfileFromUserId('@alice:example.com');
       expect(aliceProfile.avatarUrl.toString(),
           'mxc://example.org/SEsfnsuifSDFSSEF');
       expect(aliceProfile.displayName, 'Alice Margatroid');
+      expect(aliceProfile.canSendTo, true);
     });
     test('ownProfile', () async {
       final client = await getClient();
