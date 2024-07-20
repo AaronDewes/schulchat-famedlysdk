@@ -483,6 +483,132 @@ void main() {
       expect(resp, '42');
     });
 
+    // keep this - necessary for correctness of later power lvl assertions
+    test('Setting Powerlevel events (was: Enabling group calls)', () async {
+      // users default is 0 and so group calls not enabled
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123a',
+          content: {'events': {}, 'state_default': 50, 'users_default': 0},
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+
+      // one of the group call permissions is unspecified in events override
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123a',
+          content: {'events': {}, 'state_default': 50, 'users_default': 49},
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+
+      // only override one of the group calls permission, other one still less
+      // than users_default and state_default
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123a',
+          content: {'events': {}, 'state_default': 50, 'users_default': 2},
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+
+      // state_default 50 and user_default 26, but override evnents present
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123a',
+          content: {'events': {}, 'state_default': 50, 'users_default': 26},
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+
+      // state_default 50 and user_default 0, use enableGroupCall
+      room.setState(
+        Event(
+            senderId: '@test:example.com',
+            type: 'm.room.power_levels',
+            room: room,
+            eventId: '123',
+            content: {
+              'state_default': 50,
+              'users': {'@test:fakeServer.notExisting': 100},
+              'users_default': 0
+            },
+            originServerTs: DateTime.now(),
+            stateKey: ''),
+      );
+
+      // state_default 50 and user_default unspecified, use enableGroupCall
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123',
+          content: {
+            'state_default': 50,
+            'users': {'@test:fakeServer.notExisting': 100},
+          },
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+
+      // state_default is 0 so users should be able to send state events
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123',
+          content: {
+            'state_default': 0,
+            'users': {'@test:fakeServer.notExisting': 100},
+          },
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+      room.setState(
+        Event(
+          senderId: '@test:example.com',
+          type: 'm.room.power_levels',
+          room: room,
+          eventId: '123abc',
+          content: {
+            'ban': 50,
+            'events': {'m.room.name': 0, 'm.room.power_levels': 100},
+            'events_default': 0,
+            'invite': 50,
+            'kick': 50,
+            'notifications': {'room': 20},
+            'redact': 50,
+            'state_default': 50,
+            'users': {},
+            'users_default': 0
+          },
+          originServerTs: DateTime.now(),
+          stateKey: '',
+        ),
+      );
+    });
+
     test('invite', () async {
       await room.invite('Testname');
     });
