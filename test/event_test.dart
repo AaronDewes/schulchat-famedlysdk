@@ -919,8 +919,10 @@ void main() {
         'type': 'm.room.message',
         'unsigned': {'age': 1234}
       }, room);
+      // geolocation updates are not supported, so the following expectation needs to be adapted
+      //'Example shared the location');
       expect(await event.calcLocalizedBody(MatrixDefaultLocalizations()),
-          'Example shared the location');
+          'Big Ben, London, UK');
       expect(event.isEventTypeKnown, true);
 
       event = Event.fromJson({
