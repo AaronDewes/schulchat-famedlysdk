@@ -419,13 +419,12 @@ class HiveCollectionsDatabase extends DatabaseApi {
         // Combine those two lists while respecting the start and limit parameters.
         final end = min(timelineEventIds.length,
             start + (limit ?? timelineEventIds.length));
-        final eventIds = <String>[
+        final eventIds = List<String>.from([
           ...sendingEventIds,
           ...(start < timelineEventIds.length && !onlySending
-                  ? timelineEventIds.getRange(start, end).toList()
-                  : [])
-              .whereType<String>()
-        ];
+              ? timelineEventIds.getRange(start, end).toList()
+              : [])
+        ]);
 
         return await _getEventsByIds(eventIds, room);
       });
@@ -907,15 +906,6 @@ class HiveCollectionsDatabase extends DatabaseApi {
   @override
   Future<void> removeUserDeviceKey(String userId, String deviceId) async {
     await _userDeviceKeysBox.delete(TupleKey(userId, deviceId).toString());
-    return;
-  }
-
-  @override
-  Future<void> resetNotificationCount(String roomId) async {
-    final raw = await _roomsBox.get(roomId);
-    if (raw == null) return;
-    raw['notification_count'] = raw['highlight_count'] = 0;
-    await _roomsBox.put(roomId, raw);
     return;
   }
 
@@ -1444,17 +1434,6 @@ class HiveCollectionsDatabase extends DatabaseApi {
     final json = copyMap(raw);
     json['indexes'] = indexes;
     await _inboundGroupSessionsBox.put(sessionId, json);
-    return;
-  }
-
-  @override
-  Future<void> updateRoomSortOrder(
-      double oldestSortOrder, double newestSortOrder, String roomId) async {
-    final raw = await _roomsBox.get(roomId);
-    if (raw == null) throw ('Room not found');
-    raw['oldest_sort_order'] = oldestSortOrder;
-    raw['newest_sort_order'] = newestSortOrder;
-    await _roomsBox.put(roomId, raw);
     return;
   }
 

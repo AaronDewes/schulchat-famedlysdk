@@ -418,12 +418,16 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
         // Combine those two lists while respecting the start and limit parameters.
         final end = min(timelineEventIds.length,
             start + (limit ?? timelineEventIds.length));
-        final eventIds = sendingEventIds +
-            (start < timelineEventIds.length && !onlySending
+        final eventIds = List<String>.from(
+          [
+            ...sendingEventIds,
+            ...(start < timelineEventIds.length && !onlySending
                 ? timelineEventIds.getRange(start, end).toList()
-                : []);
+                : [])
+          ],
+        );
 
-        return await _getEventsByIds(eventIds.cast<String>(), room);
+        return await _getEventsByIds(eventIds, room);
       });
 
   @override
@@ -836,15 +840,6 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
   @override
   Future<void> removeUserDeviceKey(String userId, String deviceId) async {
     await _userDeviceKeysBox.delete(MultiKey(userId, deviceId).toString());
-    return;
-  }
-
-  @override
-  Future<void> resetNotificationCount(String roomId) async {
-    final raw = await _roomsBox.get(roomId.toHiveKey);
-    if (raw == null) return;
-    raw['notification_count'] = raw['highlight_count'] = 0;
-    await _roomsBox.put(roomId.toHiveKey, raw);
     return;
   }
 
@@ -1397,16 +1392,6 @@ class FamedlySdkHiveDatabase extends DatabaseApi {
     }
     raw['indexes'] = indexes;
     await _inboundGroupSessionsBox.put(sessionId.toHiveKey, raw);
-    return;
-  }
-
-  @override
-  Future<void> updateRoomSortOrder(
-      double oldestSortOrder, double newestSortOrder, String roomId) async {
-    final raw = await _roomsBox.get(roomId.toHiveKey);
-    raw['oldest_sort_order'] = oldestSortOrder;
-    raw['newest_sort_order'] = newestSortOrder;
-    await _roomsBox.put(roomId.toHiveKey, raw);
     return;
   }
 

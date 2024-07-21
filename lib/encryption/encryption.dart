@@ -204,13 +204,12 @@ class Encryption {
         throw DecryptException(DecryptException.unknownAlgorithm);
       }
       final sessionId = content.sessionId;
-      final senderKey = content.senderKey;
       if (sessionId == null) {
         throw DecryptException(DecryptException.unknownSession);
       }
 
       final inboundGroupSession =
-          keyManager.getInboundGroupSession(roomId, sessionId, senderKey);
+          keyManager.getInboundGroupSession(roomId, sessionId);
       if (!(inboundGroupSession?.isValid ?? false)) {
         canRequestSession = true;
         throw DecryptException(DecryptException.unknownSession);
@@ -309,14 +308,12 @@ class Encryption {
                   .getInboundGroupSession(
                     roomId,
                     sessionId,
-                    content.senderKey,
                   )
                   ?.isValid ??
               false)) {
         await keyManager.loadInboundGroupSession(
           roomId,
           sessionId,
-          content.senderKey,
         );
       }
       event = decryptRoomEventSync(roomId, event);
@@ -354,8 +351,9 @@ class Encryption {
   Future<Map<String, dynamic>> encryptGroupMessagePayload(
       String roomId, Map<String, dynamic> payload,
       {String type = EventTypes.Message}) async {
-    final Map<String, dynamic>? mRelatesTo =
-        Map.from(payload).remove('m.relates_to');
+    payload = copyMap(payload);
+    final Map<String, dynamic>? mRelatesTo = payload.remove('m.relates_to');
+
     // Events which only contain a m.relates_to like reactions don't need to
     // be encrypted.
     if (payload.isEmpty && mRelatesTo != null) {
@@ -395,6 +393,8 @@ class Encryption {
       'algorithm': AlgorithmTypes.megolmV1AesSha2,
       'ciphertext':
           sess!.outboundGroupSession!.encrypt(json.encode(payloadContent)),
+      // device_id + sender_key should be removed at some point in future since
+      // they're deprecated. Just left here for compatibility
       'device_id': client.deviceID,
       'sender_key': identityKey,
       'session_id': sess.outboundGroupSession!.session_id(),
