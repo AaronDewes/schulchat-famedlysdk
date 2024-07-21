@@ -625,19 +625,9 @@ class Room {
       Event? inReplyTo,
       String? editEventId,
       bool parseMarkdown = true,
-      bool parseCommands = true,
       String msgtype = MessageTypes.Text,
       String? threadRootEventId,
       String? threadLastEventId}) {
-    /// schulchat-specific
-    /// if (parseCommands) {
-    ///  return client.parseAndRunCommand(this, message,
-    ///      inReplyTo: inReplyTo,
-    ///      editEventId: editEventId,
-    ///      txid: txid,
-    ///      threadRootEventId: threadRootEventId,
-    ///      threadLastEventId: threadLastEventId);
-    ///}
     final event = <String, dynamic>{
       'msgtype': msgtype,
       'body': message,
