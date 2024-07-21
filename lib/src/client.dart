@@ -238,6 +238,12 @@ class Client extends MatrixApi {
   List<Room> get rooms => _rooms;
   List<Room> _rooms = [];
 
+  /// Get a list of the archived rooms
+  ///
+  /// Attention! Archived rooms are only returned if [loadArchive()] was called
+  /// beforehand! The state refers to the last retrieval via [loadArchive()]!
+  List<ArchivedRoom> get archivedRooms => _archivedRooms;
+
   bool enableDehydratedDevices = false;
 
   /// Whether this client supports end-to-end encryption using olm.
@@ -250,7 +256,7 @@ class Client extends MatrixApi {
 
   String get fingerprintKey => encryption?.fingerprintKey ?? '';
 
-  /// Wheather this session is unknown to others
+  /// Whether this session is unknown to others
   bool get isUnknownSession =>
       userDeviceKeys[userID]?.deviceKeys[deviceID]?.signed != true;
 
@@ -1132,7 +1138,7 @@ class Client extends MatrixApi {
   /// full Room object with the sender User object in it. Returns null if this
   /// push notification is not corresponding to an existing event.
   /// The client does **not** need to be initialized first. If it is not
-  /// initalized, it will only fetch the necessary parts of the database. This
+  /// initialized, it will only fetch the necessary parts of the database. This
   /// should make it possible to run this parallel to another client with the
   /// same client name.
   /// This also checks if the given event has a readmarker and returns null

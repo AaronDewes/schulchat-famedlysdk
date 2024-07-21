@@ -38,6 +38,12 @@ class HiveCollectionsDatabase extends DatabaseApi {
   final String name;
   final String? path;
   final HiveCipher? key;
+  final Future<BoxCollection> Function(
+    String name,
+    Set<String> boxNames, {
+    String? path,
+    HiveCipher? key,
+  }) collectionFactory;
   late BoxCollection _collection;
   late CollectionBox<String> _clientBox;
   late CollectionBox<Map> _accountDataBox;
@@ -122,17 +128,21 @@ class HiveCollectionsDatabase extends DatabaseApi {
 
   String get _seenDeviceKeysBoxName => 'box_seen_device_keys';
 
+  HiveCollectionsDatabase(
+    this.name,
+    this.path, {
+    this.key,
+    this.collectionFactory = BoxCollection.open,
+  });
   String get _requireReadReceiptBoxName => 'box_require_read_receipt';
 
   String get _addressbookBoxName => 'box_addressbook';
-
-  HiveCollectionsDatabase(this.name, this.path, {this.key});
 
   @override
   int get maxFileSize => 0;
 
   Future<void> open() async {
-    _collection = await BoxCollection.open(
+    _collection = await collectionFactory(
       name,
       {
         _clientBoxName,

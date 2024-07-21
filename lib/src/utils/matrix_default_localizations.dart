@@ -264,4 +264,7 @@ class MatrixDefaultLocalizations extends MatrixLocalizations {
 
   @override
   String get pollEnd => 'Poll closed';
+
+  @override
+  String get unknownUser => 'Unknown user';
 }
