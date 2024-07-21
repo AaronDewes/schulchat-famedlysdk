@@ -1,6 +1,6 @@
 name: matrix
 description: Matrix Dart SDK
-version: 0.18.3
+version: 0.18.4
 homepage: https://famedly.com
 repository: https://gitlab.com/famedly/company/frontend/famedlysdk.git
 publish_to: none
@@ -26,13 +26,13 @@ dependencies:
   matrix_api_lite:
     git:
       url: git@git.fairkom.net:clients/rlp/client/matrix_api_lite
-      ref: 8e19d909c6d76390276a0f076a0b72d03b14e1f5
+      ref: merge-v1.6.1
   mime: ^1.0.0
   olm: ^2.0.2
   random_string: ^2.3.1
   sdp_transform: ^0.3.2
   slugify: ^2.0.0
-  webrtc_interface: ^1.0.10
+  webrtc_interface: ^1.0.13
 
 dev_dependencies:
   coverage: ">=0.15.0 <2.0.0"
