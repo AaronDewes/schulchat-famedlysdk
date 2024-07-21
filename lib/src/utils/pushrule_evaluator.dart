@@ -192,6 +192,8 @@ class _OptimizedRules {
             notificationPermissions.add(key);
           }
           break;
+        default:
+          throw Exception('Unknown push condition: ${condition.kind}');
       }
     }
     actions = EvaluatedPushRuleAction.fromActions(rule.actions);
