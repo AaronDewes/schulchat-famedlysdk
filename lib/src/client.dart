@@ -3102,6 +3102,64 @@ class Client extends MatrixApi {
     }
     return availableSchools;
   }
+
+  // write question code to account data
+  Future<void> setBackupQuestion(String value) async {
+    if (value == '') {
+      Logs().w('Called setBackupQuestion with empty value');
+    } else {
+      await setAccountData(userID!, 'de.rlp.backup.answer', {'answer': value});
+    }
+  }
+
+  // {
+  //   'q1': 'Question 1',
+  //   'q2': 'Question 2',
+  //   'disabled': {
+  //   ...}
+  // }
+  Map<String, dynamic> _backupQuestions = {};
+
+  Future<Map<String, dynamic>> getAvailBackupQuestions() async {
+    // it is not possbile to update the questions atm
+    // TODO when a broken wellknown file is uploaded and the client fetches it,
+    // it will not get a new file until logout. So atm it's best if we don't
+    // cache the file
+    // if (_backupQuestions.isNotEmpty) return _backupQuestions;
+    try {
+      final _wellKnownInformation = await getWellknown();
+
+      // populate questions
+      if ((_wellKnownInformation.additionalProperties
+              .containsKey('de.rlp.backup')) &&
+          (_wellKnownInformation.additionalProperties['de.rlp.backup']
+                  ?.containsKey('questions_enabled') ??
+              false)) {
+        _backupQuestions = _wellKnownInformation
+            .additionalProperties['de.rlp.backup']?['questions_enabled'];
+      }
+
+      // populate historical questions, that can no longer be used
+      if ((_wellKnownInformation.additionalProperties
+              .containsKey('de.rlp.backup')) &&
+          (_wellKnownInformation.additionalProperties['de.rlp.backup']
+                  ?.containsKey('questions_disabled') ??
+              false)) {
+        final _historicalQuestions = _wellKnownInformation
+            .additionalProperties['de.rlp.backup']?['questions_disabled'];
+        _backupQuestions['disabled'] = _historicalQuestions;
+      }
+    } catch (_) {
+      Logs().w('Error getting wellknown client file: $_');
+    }
+
+    return _backupQuestions;
+  }
+
+  // returns the choosen question from account data
+  String? getBackupQuestion() {
+    return accountData['de.rlp.backup.answer']?.content['answer'];
+  }
 }
 
 class SdkError {
