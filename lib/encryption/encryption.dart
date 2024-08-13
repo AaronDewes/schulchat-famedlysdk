@@ -362,6 +362,9 @@ class Encryption {
     if (type == EventTypes.ReadReceiptRequired) {
       return payload;
     }
+    if (type == EventTypes.ReadReceipt) {
+      return payload;
+    }
     final room = client.getRoomById(roomId);
     if (room == null || !room.encrypted || !enabled) {
       return payload;
