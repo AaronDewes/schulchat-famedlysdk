@@ -186,7 +186,7 @@ class User extends Event {
   bool get canKick =>
       [Membership.join, Membership.invite].contains(membership) &&
       room.canKick &&
-      powerLevel < room.ownPowerLevel;
+      powerLevel <= room.ownPowerLevel;
 
   /// Whether the client is allowed to change the power level of this user.
   /// Please be aware that you can only set the power level to at least your own!
