@@ -27,7 +27,7 @@ import 'package:matrix/matrix.dart';
 import 'fake_database.dart';
 
 void main() {
-  group('HiveCollections Database Test', () async {
+  group('HiveCollections Database Test', () {
     testDatabase(
       getHiveCollectionsDatabase(null),
     );
