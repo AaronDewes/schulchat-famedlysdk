@@ -191,7 +191,7 @@ class User extends Event {
   /// Whether the client is allowed to change the power level of this user.
   /// Please be aware that you can only set the power level to at least your own!
   bool get canChangePowerLevel =>
-      room.canChangePowerLevel && powerLevel < room.ownPowerLevel;
+      room.canChangePowerLevel && powerLevel <= room.ownPowerLevel;
 
   @override
   bool operator ==(dynamic other) => (other is User &&
